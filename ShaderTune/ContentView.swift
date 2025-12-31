@@ -51,6 +51,9 @@ struct ContentView: View {
     @State private var showingFindReplace = false
     @State private var searchText = ""
     @State private var replaceText = ""
+    @State private var showingCompletions = false
+    @State private var completions: [CompletionItem] = []
+    @State private var completionProvider = CompletionProvider()
 
     init() {
         guard let compiler = MetalCompilerService() else {
@@ -114,16 +117,33 @@ struct ContentView: View {
 
             // Editor and Error Display
             GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    // Editor
-                    ShaderEditorView(source: $shaderSource)
-                        .frame(height: geometry.size.height * 0.7)
+                ZStack(alignment: .topLeading) {
+                    VStack(spacing: 0) {
+                        // Editor
+                        ShaderEditorView(source: $shaderSource)
+                            .frame(height: geometry.size.height * 0.7)
 
-                    Divider()
+                        Divider()
 
-                    // Error Display
-                    ErrorDisplayView(diagnostics: compiler.diagnostics)
-                        .frame(height: geometry.size.height * 0.3)
+                        // Error Display
+                        ErrorDisplayView(diagnostics: compiler.diagnostics)
+                            .frame(height: geometry.size.height * 0.3)
+                    }
+
+                    // Completion popup
+                    if showingCompletions && !completions.isEmpty {
+                        CompletionView(
+                            completions: completions,
+                            onSelect: { item in
+                                insertCompletion(item)
+                            },
+                            onDismiss: {
+                                showingCompletions = false
+                            }
+                        )
+                        .offset(x: 100, y: 100) // Simple fixed position
+                        .transition(.opacity)
+                    }
                 }
             }
         }
@@ -140,8 +160,19 @@ struct ContentView: View {
             }
             return .ignored
         }
+        .onKeyPress(" ", phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.control) {
+                triggerCompletion()
+                return .handled
+            }
+            return .ignored
+        }
         #endif
-        .onChange(of: shaderSource) { _, newValue in
+        .onChange(of: shaderSource) { oldValue, newValue in
+            // Auto-trigger completion on typing
+            if newValue.count > oldValue.count {
+                updateCompletions()
+            }
             if autoCompile {
                 scheduleCompilation(for: newValue)
             }
@@ -207,6 +238,33 @@ struct ContentView: View {
     private func replaceAll() {
         guard !searchText.isEmpty else { return }
         shaderSource = shaderSource.replacingOccurrences(of: searchText, with: replaceText)
+    }
+
+    // MARK: - Code Completion
+
+    private func triggerCompletion() {
+        let cursorPosition = shaderSource.endIndex // Simplified - would need actual cursor tracking
+        completions = completionProvider.completions(for: shaderSource, at: cursorPosition)
+        showingCompletions = !completions.isEmpty
+    }
+
+    private func updateCompletions() {
+        let cursorPosition = shaderSource.endIndex
+        if completionProvider.shouldTriggerCompletion(for: shaderSource, at: cursorPosition) {
+            completions = completionProvider.completions(for: shaderSource, at: cursorPosition)
+            showingCompletions = !completions.isEmpty
+        } else {
+            showingCompletions = false
+        }
+    }
+
+    private func insertCompletion(_ item: CompletionItem) {
+        // Find word range and replace with completion
+        let cursorPosition = shaderSource.endIndex
+        if let range = completionProvider.wordRange(in: shaderSource, at: cursorPosition) {
+            shaderSource.replaceSubrange(range, with: item.text)
+        }
+        showingCompletions = false
     }
 }
 

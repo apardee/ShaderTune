@@ -44,3 +44,11 @@ Open `ShaderTune.xcodeproj` in Xcode and use Cmd+R to build and run.
 - Target: ShaderTune
 - Build configurations: Debug and Release
 - SwiftUI framework is used for UI development
+
+## Syntax Highlighting
+
+ShaderTune uses **C++ syntax highlighting** for Metal shaders (since MSL is based on C++14). While this provides basic syntax highlighting, it doesn't highlight MSL-specific keywords like `kernel`, `vertex`, `fragment`, or types like `float4`, `texture2d`, etc.
+
+A complete Metal Shading Language syntax definition is available in `ShaderTune/Resources/metal.js` for future use when switching to an editor that supports custom language definitions.
+
+See `ShaderTune/Resources/README.md` for detailed information about syntax highlighting and upgrade paths.

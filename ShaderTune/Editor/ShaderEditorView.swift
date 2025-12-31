@@ -4,7 +4,11 @@ import CodeEditor
 struct ShaderEditorView: View {
     @Binding var source: String
 
-    @State private var language = CodeEditor.Language(rawValue: "glsl")
+    // Use C++ mode as MSL is based on C++14
+    // This provides better highlighting than GLSL for Metal shaders
+    // Note: MSL-specific keywords (kernel, vertex, fragment, etc.) won't be highlighted
+    // until we switch to an editor that supports custom language definitions
+    @State private var language = CodeEditor.Language.cpp
     @State private var theme = CodeEditor.ThemeName.pojoaque
     @State private var fontSize: CGFloat = 14
 
