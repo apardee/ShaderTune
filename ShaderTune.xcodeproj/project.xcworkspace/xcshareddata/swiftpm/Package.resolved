@@ -1,22 +1,22 @@
 {
-  "originHash" : "2d3fb37ce5c71703b42fabdc8b38f47c0281faf41ff63ea39d9505a4183c79d6",
+  "originHash" : "3675a8b363ad866505239c8e2c7f6a0862ed02618f2dca478b2519372fb79c0c",
   "pins" : [
     {
-      "identity" : "codeeditor",
+      "identity" : "codeeditorview",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ZeeZide/CodeEditor",
+      "location" : "https://github.com/mchakravarty/CodeEditorView",
       "state" : {
-        "revision" : "f5c076b94f4ceb05abff88ba91d75a8d57143f0c",
-        "version" : "1.2.6"
+        "branch" : "main",
+        "revision" : "617b57f363b2b75b9520fba67e7190689b91a444"
       }
     },
     {
-      "identity" : "highlightr",
+      "identity" : "rearrange",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/helje5/Highlightr",
+      "location" : "https://github.com/ChimeHQ/Rearrange.git",
       "state" : {
-        "revision" : "bd0358056ff1f12ea83833a9fc1b3b5a396a9da0",
-        "version" : "3.0.2"
+        "revision" : "5ff7f3363f7a08f77e0d761e38e6add31c2136e1",
+        "version" : "1.8.1"
       }
     }
   ],

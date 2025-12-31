@@ -115,20 +115,14 @@ struct ContentView: View {
                 )
             }
 
-            // Editor and Error Display
+            // Editor with inline error display
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
-                    VStack(spacing: 0) {
-                        // Editor
-                        ShaderEditorView(source: $shaderSource)
-                            .frame(height: geometry.size.height * 0.7)
-
-                        Divider()
-
-                        // Error Display
-                        ErrorDisplayView(diagnostics: compiler.diagnostics)
-                            .frame(height: geometry.size.height * 0.3)
-                    }
+                    // Editor with native inline errors
+                    ShaderEditorViewWrapper(
+                        source: $shaderSource,
+                        diagnostics: compiler.diagnostics
+                    )
 
                     // Completion popup
                     if showingCompletions && !completions.isEmpty {

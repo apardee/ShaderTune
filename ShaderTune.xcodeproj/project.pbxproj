@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		923F490B2F05B96900E1D069 /* CodeEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 923F49012F05B20000E1D069 /* CodeEditor */; };
+		923F490B2F05B96900E1D069 /* CodeEditorView in Frameworks */ = {isa = PBXBuildFile; productRef = 923F49012F05B20000E1D069 /* CodeEditorView */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,7 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				923F490B2F05B96900E1D069 /* CodeEditor in Frameworks */,
+				923F490B2F05B96900E1D069 /* CodeEditorView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,7 +70,7 @@
 			);
 			name = ShaderTune;
 			packageProductDependencies = (
-				923F49012F05B20000E1D069 /* CodeEditor */,
+				923F49012F05B20000E1D069 /* CodeEditorView */,
 			);
 			productName = ShaderTune;
 			productReference = 923F48F12F05B0F500E1D069 /* ShaderTune.app */;
@@ -101,7 +101,7 @@
 			mainGroup = 923F48E82F05B0F500E1D069;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditor" */,
+				923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditorView" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 923F48F22F05B0F500E1D069 /* Products */;
@@ -362,21 +362,21 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditor" */ = {
+		923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditorView" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ZeeZide/CodeEditor";
+			repositoryURL = "https://github.com/mchakravarty/CodeEditorView";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.2.5;
+				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		923F49012F05B20000E1D069 /* CodeEditor */ = {
+		923F49012F05B20000E1D069 /* CodeEditorView */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditor" */;
-			productName = CodeEditor;
+			package = 923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditorView" */;
+			productName = CodeEditorView;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
