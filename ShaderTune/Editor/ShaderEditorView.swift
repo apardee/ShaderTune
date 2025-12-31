@@ -3,6 +3,7 @@ import CodeEditor
 
 struct ShaderEditorView: View {
     @Binding var source: String
+
     @State private var language = CodeEditor.Language(rawValue: "glsl")
     @State private var theme = CodeEditor.ThemeName.pojoaque
     @State private var fontSize: CGFloat = 14

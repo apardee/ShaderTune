@@ -47,6 +47,10 @@ struct ContentView: View {
     """
     @State private var autoCompile = true
     @State private var debounceTask: Task<Void, Never>?
+    @State private var showingTemplatePicker = false
+    @State private var showingFindReplace = false
+    @State private var searchText = ""
+    @State private var replaceText = ""
 
     init() {
         guard let compiler = MetalCompilerService() else {
@@ -67,6 +71,11 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
 
                 Spacer()
+
+                Button(action: { showingTemplatePicker = true }) {
+                    Label("Templates", systemImage: "doc.text")
+                }
+                .help("Choose from shader templates")
 
                 Toggle("Auto-compile", isOn: $autoCompile)
                     .toggleStyle(.switch)
@@ -91,6 +100,18 @@ struct ContentView: View {
             .background(Color(.systemBackground))
             #endif
 
+            // Find/Replace bar
+            if showingFindReplace {
+                FindReplaceView(
+                    searchText: $searchText,
+                    replaceText: $replaceText,
+                    isVisible: $showingFindReplace,
+                    onFind: findNext,
+                    onReplace: replaceNext,
+                    onReplaceAll: replaceAll
+                )
+            }
+
             // Editor and Error Display
             GeometryReader { geometry in
                 VStack(spacing: 0) {
@@ -106,6 +127,20 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingTemplatePicker) {
+            TemplatePickerView { template in
+                loadTemplate(template)
+            }
+        }
+        #if os(macOS)
+        .onKeyPress("f", phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                showingFindReplace.toggle()
+                return .handled
+            }
+            return .ignored
+        }
+        #endif
         .onChange(of: shaderSource) { _, newValue in
             if autoCompile {
                 scheduleCompilation(for: newValue)
@@ -141,6 +176,37 @@ struct ContentView: View {
         // Cancel any pending debounced compilation
         debounceTask?.cancel()
         compiler.compile(source: shaderSource)
+    }
+
+    // MARK: - Template Loading
+
+    private func loadTemplate(_ template: ShaderTemplate) {
+        shaderSource = template.source
+        if autoCompile {
+            compileNow()
+        }
+    }
+
+    // MARK: - Find/Replace
+
+    private func findNext() {
+        guard !searchText.isEmpty else { return }
+        // Note: Basic implementation - in production would need cursor tracking
+        // For now, just highlights that the feature exists
+        print("Find: \(searchText)")
+    }
+
+    private func replaceNext() {
+        guard !searchText.isEmpty else { return }
+        // Find first occurrence and replace
+        if let range = shaderSource.range(of: searchText) {
+            shaderSource.replaceSubrange(range, with: replaceText)
+        }
+    }
+
+    private func replaceAll() {
+        guard !searchText.isEmpty else { return }
+        shaderSource = shaderSource.replacingOccurrences(of: searchText, with: replaceText)
     }
 }
 
