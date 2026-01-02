@@ -53,6 +53,7 @@ struct ContentView: View {
     @State private var showingCompletions = false
     @State private var completions: [CompletionItem] = []
     @State private var completionProvider = CompletionProvider()
+	@State private var mousePosition: CGPoint = .zero
 
     init() {
         guard let compiler = MetalCompilerService() else {
@@ -113,32 +114,44 @@ struct ContentView: View {
                     onReplaceAll: replaceAll
                 )
             }
+			
+			HStack {
+				// Editor with inline error display
+				GeometryReader { geometry in
+					ZStack(alignment: .topLeading) {
+						// Editor with native inline errors
+						ShaderEditorViewWrapper(
+							source: $shaderSource,
+							diagnostics: compiler.diagnostics
+						)
 
-            // Editor with inline error display
-            GeometryReader { geometry in
-                ZStack(alignment: .topLeading) {
-                    // Editor with native inline errors
-                    ShaderEditorViewWrapper(
-                        source: $shaderSource,
-                        diagnostics: compiler.diagnostics
-                    )
-
-                    // Completion popup
-                    if showingCompletions && !completions.isEmpty {
-                        CompletionView(
-                            completions: completions,
-                            onSelect: { item in
-                                insertCompletion(item)
-                            },
-                            onDismiss: {
-                                showingCompletions = false
-                            }
-                        )
-                        .offset(x: 100, y: 100) // Simple fixed position
-                        .transition(.opacity)
-                    }
-                }
-            }
+						// Completion popup
+						if showingCompletions && !completions.isEmpty {
+							CompletionView(
+								completions: completions,
+								onSelect: { item in
+									insertCompletion(item)
+								},
+								onDismiss: {
+									showingCompletions = false
+								}
+							)
+							.offset(x: 100, y: 100) // Simple fixed position
+							.transition(.opacity)
+						}
+					}
+				}
+				
+				RendererView(mousePosition: $mousePosition)
+					.onContinuousHover { phase in
+						switch phase {
+						case .active(let location):
+							mousePosition = location
+						case .ended:
+							break
+						}
+					}
+			}
         }
         .sheet(isPresented: $showingTemplatePicker) {
             TemplatePickerView { template in
