@@ -6,10 +6,9 @@
 //
 
 import SwiftUI
-import Combine
 
 struct ContentView: View {
-    @StateObject private var compiler: MetalCompilerService
+    @State private var compiler: MetalCompilerService
     @State private var shaderSource = """
     #include <metal_stdlib>
     using namespace metal;
@@ -59,7 +58,7 @@ struct ContentView: View {
         guard let compiler = MetalCompilerService() else {
             fatalError("Metal is not supported on this device")
         }
-        _compiler = StateObject(wrappedValue: compiler)
+		self.compiler = compiler
     }
 
     var body: some View {

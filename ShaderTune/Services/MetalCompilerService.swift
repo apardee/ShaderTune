@@ -1,14 +1,14 @@
 import Foundation
 import Metal
-import Combine
+import Observation
 
 /// Service responsible for compiling Metal shader source code and reporting diagnostics
-@MainActor
-class MetalCompilerService: ObservableObject {
+@MainActor @Observable
+class MetalCompilerService {
     private let device: MTLDevice
-    @Published var diagnostics: [CompilationDiagnostic] = []
-    @Published var compiledLibrary: MTLLibrary?
-    @Published var isCompiling: Bool = false
+    var diagnostics: [CompilationDiagnostic] = []
+    var compiledLibrary: MTLLibrary?
+	var isCompiling: Bool = false
 
     init?() {
         guard let device = MTLCreateSystemDefaultDevice() else {
