@@ -106,7 +106,7 @@ struct ContentView: View {
                 )
             }
 			
-			HStack {
+			HSplitView {
 				// Editor with inline error display
 				ZStack(alignment: .topLeading) {
 					// Editor with native inline errors
@@ -130,9 +130,11 @@ struct ContentView: View {
 						.transition(.opacity)
 					}
 				}
-				
+				.frame(minWidth: 200, idealWidth: 400)
+
 				// Renderer preview
 				RendererView(mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary)
+					.frame(minWidth: 200, idealWidth: 400)
 					.onContinuousHover { phase in
 						switch phase {
 						case .active(let location):
