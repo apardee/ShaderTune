@@ -22,7 +22,6 @@ class MetalCompilerService {
     func compile(source: String) {
         isCompiling = true
         diagnostics = []
-        compiledLibrary = nil
 
         do {
             let options = MTLCompileOptions()
@@ -33,7 +32,6 @@ class MetalCompilerService {
             self.compiledLibrary = library
             self.diagnostics = []
         } catch let error as NSError {
-            self.compiledLibrary = nil
             self.diagnostics = parseError(error)
         }
 

@@ -11,25 +11,56 @@ struct Uniforms {
 class Renderer: NSObject {
 	let device: MTLDevice
 	let queue: MTLCommandQueue
-	let pipelineState: MTLRenderPipelineState
-	
+	private let defaultLibrary: MTLLibrary
+	private(set) var pipelineState: MTLRenderPipelineState
+
 	var mousePosition: CGPoint = .zero
 	let startTime: TimeInterval = CACurrentMediaTime()
-	
+
 	override init() {
 		device = MTLCreateSystemDefaultDevice()!
 		queue = device.makeCommandQueue()!
-		pipelineState = Self.makePipelineState(device: device)
+		defaultLibrary = device.makeDefaultLibrary()!
+		pipelineState = Self.makePipelineState(
+			device: device,
+			defaultLibrary: defaultLibrary,
+			customLibrary: nil
+		)
 		super.init()
 	}
-	
-	private static func makePipelineState(device: MTLDevice) -> MTLRenderPipelineState {
-		let library = device.makeDefaultLibrary()!
+
+	private static func makePipelineState(
+		device: MTLDevice,
+		defaultLibrary: MTLLibrary,
+		customLibrary: MTLLibrary?
+	) -> MTLRenderPipelineState {
 		let pipelineStateDescriptor = MTLRenderPipelineDescriptor()
-		pipelineStateDescriptor.vertexFunction = library.makeFunction(name: "vertexFunc")!
-		pipelineStateDescriptor.fragmentFunction = library.makeFunction(name: "fragmentFunc")!
+
+		// ALWAYS use vertex from default library
+		pipelineStateDescriptor.vertexFunction = defaultLibrary.makeFunction(name: "vertexFunc")!
+
+		// Use custom fragment if available, otherwise default
+		let fragmentFunc: MTLFunction
+		if let customLib = customLibrary,
+		   let customFragment = customLib.makeFunction(name: "fragmentFunc") {
+			fragmentFunc = customFragment
+		} else {
+			fragmentFunc = defaultLibrary.makeFunction(name: "fragmentFunc")!
+		}
+		pipelineStateDescriptor.fragmentFunction = fragmentFunc
+
 		pipelineStateDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
 		return try! device.makeRenderPipelineState(descriptor: pipelineStateDescriptor)
+	}
+
+	/// Updates the render pipeline with a new custom fragment shader library
+	func updatePipeline(with customLibrary: MTLLibrary?) {
+		let newPipeline = Self.makePipelineState(
+			device: device,
+			defaultLibrary: defaultLibrary,
+			customLibrary: customLibrary
+		)
+		self.pipelineState = newPipeline
 	}
 }
 

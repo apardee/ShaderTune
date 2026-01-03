@@ -13,35 +13,26 @@ struct ContentView: View {
     #include <metal_stdlib>
     using namespace metal;
 
-    struct VertexIn {
-        float4 position [[attribute(0)]];
-        float2 texCoord [[attribute(1)]];
-    };
-
-    struct VertexOut {
+    struct Vertex {
         float4 position [[position]];
-        float2 texCoord;
     };
 
-    // Vertex Shader
-    vertex VertexOut vertexShader(VertexIn in [[stage_in]]) {
-        VertexOut out;
-        out.position = in.position;
-        out.texCoord = in.texCoord;
-        return out;
-    }
+    struct Uniforms {
+        float time;
+        float2 mouse;
+        float2 resolution;
+        float scale;
+    };
 
-    // Fragment (Pixel) Shader - Animated gradient effect
-    fragment float4 fragmentShader(VertexOut in [[stage_in]],
-                                   constant float &time [[buffer(0)]]) {
-        float2 uv = in.texCoord;
+    fragment float4 fragmentFunc(Vertex in [[stage_in]],
+                                 constant Uniforms& uniforms [[buffer(0)]]) {
+        // Normalized pixel coordinates (0 to 1)
+        float2 uv = in.position.xy / uniforms.resolution;
 
-        // Create animated color gradient
-        float r = 0.5 + 0.5 * sin(uv.x * 3.0 + time);
-        float g = 0.5 + 0.5 * sin(uv.y * 3.0 + time * 0.7);
-        float b = 0.5 + 0.5 * cos(length(uv - 0.5) * 5.0 - time);
+        // Animated color based on position and time
+        float3 col = 0.5 + 0.5 * cos(uniforms.time + uv.xyx + float3(0, 2, 4));
 
-        return float4(r, g, b, 1.0);
+        return float4(col, 1.0);
     }
     """
     @State private var autoCompile = true
@@ -142,7 +133,7 @@ struct ContentView: View {
 					}
 				}
 				
-				RendererView(mousePosition: $mousePosition)
+				RendererView(mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary)
 					.onContinuousHover { phase in
 						switch phase {
 						case .active(let location):

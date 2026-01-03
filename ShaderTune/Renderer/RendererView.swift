@@ -3,7 +3,8 @@ import MetalKit
 
 struct RendererView: NSViewRepresentable {
 	@Binding var mousePosition: CGPoint
-	
+	@Binding var compiledLibrary: MTLLibrary?
+
 	func makeNSView(context: Context) -> MTKView {
 		let view = MTKView()
 		view.device = context.coordinator.device
@@ -12,11 +13,14 @@ struct RendererView: NSViewRepresentable {
 		view.colorPixelFormat = .bgra8Unorm
 		return view
 	}
-	
+
 	func updateNSView(_ nsView: MTKView, context: Context) {
 		context.coordinator.mousePosition = mousePosition
+
+		// Update pipeline when library changes
+		context.coordinator.updatePipeline(with: compiledLibrary)
 	}
-	
+
 	func makeCoordinator() -> Renderer {
 		Renderer()
 	}
