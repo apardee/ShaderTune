@@ -25,33 +25,11 @@ enum FileError: LocalizedError {
 }
 
 struct ContentView: View {
+    // Default shader is empty - shows empty state until file is loaded
+    private static let defaultShader = ""
+
     @State private var compiler: MetalCompilerService
-    @State private var shaderSource = """
-    #include <metal_stdlib>
-    using namespace metal;
-
-    struct Vertex {
-        float4 position [[position]];
-    };
-
-    struct Uniforms {
-        float time;
-        float2 mouse;
-        float2 resolution;
-        float scale;
-    };
-
-    fragment float4 fragmentFunc(Vertex in [[stage_in]],
-                                 constant Uniforms& uniforms [[buffer(0)]]) {
-        // Normalized pixel coordinates (0 to 1)
-        float2 uv = in.position.xy / uniforms.resolution;
-
-        // Animated color based on position and time
-        float3 col = 0.5 + 0.5 * cos(uniforms.time + uv.xyx + float3(0, 2, 4));
-
-        return float4(col, 1.0);
-    }
-    """
+    @State private var shaderSource = ContentView.defaultShader
     @State private var autoCompile = true
     @State private var debounceTask: Task<Void, Never>?
     @State private var showingFindReplace = false
@@ -157,42 +135,111 @@ struct ContentView: View {
                 }
 
                 // Editor with inline error display
-                ZStack(alignment: .topLeading) {
-                    // Editor with native inline errors
-                    ShaderEditorViewWrapper(
-                        source: $shaderSource,
-                        diagnostics: compiler.diagnostics
-                    )
+                if selectedFileURL == nil && shaderSource.isEmpty {
+                    // Empty state when no file is selected
+                    VStack(spacing: 20) {
+                        Spacer()
 
-                    // Completion popup
-                    if showingCompletions && !completions.isEmpty {
-                        CompletionView(
-                            completions: completions,
-                            onSelect: { item in
-                                insertCompletion(item)
-                            },
-                            onDismiss: {
-                                showingCompletions = false
+                        Image(systemName: selectedDirectoryURL != nil ? "doc.text.magnifyingglass" : "folder.badge.plus")
+                            .font(.system(size: 64))
+                            .foregroundColor(.secondary)
+
+                        VStack(spacing: 8) {
+                            Text("No Shader Selected")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+
+                            if selectedDirectoryURL != nil {
+                                Text("Select a Metal shader file (.metal) from the sidebar to begin editing")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 40)
+                            } else {
+                                Text("Open a folder (Cmd+O) or drag a shader file here to begin")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 40)
                             }
+                        }
+
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ZStack(alignment: .topLeading) {
+                        // Editor with native inline errors
+                        ShaderEditorViewWrapper(
+                            source: $shaderSource,
+                            diagnostics: compiler.diagnostics
                         )
-                        .offset(x: 100, y: 100) // Simple fixed position
-                        .transition(.opacity)
+
+                        // Completion popup
+                        if showingCompletions && !completions.isEmpty {
+                            CompletionView(
+                                completions: completions,
+                                onSelect: { item in
+                                    insertCompletion(item)
+                                },
+                                onDismiss: {
+                                    showingCompletions = false
+                                }
+                            )
+                            .offset(x: 100, y: 100) // Simple fixed position
+                            .transition(.opacity)
+                        }
                     }
                 }
             }
             .navigationSplitViewColumnWidth(min: 300, ideal: 500)
         } detail: {
             // Detail: Renderer preview
-            RendererView(mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary)
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        mousePosition = location
-                    case .ended:
-                        break
+            if selectedFileURL != nil && compiler.compiledLibrary != nil {
+                RendererView(mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary)
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            mousePosition = location
+                        case .ended:
+                            break
+                        }
                     }
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 400)
+            } else {
+                // Empty state when no shader is compiled
+                VStack(spacing: 20) {
+                    Spacer()
+
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 64))
+                        .foregroundColor(.secondary)
+
+                    VStack(spacing: 8) {
+                        Text("No Shader Preview")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+
+                        if selectedFileURL == nil {
+                            Text("Select a shader file to see the rendered output")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                        } else {
+                            Text("Compile your shader to see the preview")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                        }
+                    }
+
+                    Spacer()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 400)
+            }
         }
         #if os(macOS)
         .onKeyPress("f", phases: .down) { keyPress in
@@ -229,6 +276,19 @@ struct ContentView: View {
         } message: { error in
             Text(error.localizedDescription)
         }
+        .onChange(of: selectedFileURL) { oldValue, newValue in
+            // Keep shaderSource in sync with selected file
+            if newValue == nil && selectedDirectoryURL != nil {
+                // Folder is open but no file selected - clear the editor
+                shaderSource = ""
+                isFileDirty = false
+            } else if newValue == nil && selectedDirectoryURL == nil {
+                // No folder and no file - show default shader
+                shaderSource = ContentView.defaultShader
+                isFileDirty = false
+            }
+            // When a file is selected, it's loaded via loadFile() which sets shaderSource
+        }
         .onChange(of: shaderSource) { oldValue, newValue in
             // Mark as dirty when content changes (only for file-backed buffers)
             if selectedFileURL != nil {
@@ -239,15 +299,8 @@ struct ContentView: View {
             if newValue.count > oldValue.count {
                 updateCompletions()
             }
-            if autoCompile {
+            if autoCompile && !newValue.isEmpty {
                 scheduleCompilation(for: newValue)
-            }
-        }
-        .onAppear {
-            // Compile on first appearance if auto-compile is enabled
-            // (only if no file is loaded)
-            if autoCompile && selectedFileURL == nil {
-                compileNow()
             }
         }
     }
