@@ -6,6 +6,23 @@
 //
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
+
+enum FileError: LocalizedError {
+    case loadFailed(String)
+    case saveFailed(String)
+    case scanFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .loadFailed(let path): return "Failed to load file: \(path)"
+        case .saveFailed(let path): return "Failed to save file: \(path)"
+        case .scanFailed(let path): return "Failed to scan directory: \(path)"
+        }
+    }
+}
 
 struct ContentView: View {
     @State private var compiler: MetalCompilerService
@@ -45,6 +62,17 @@ struct ContentView: View {
     @State private var completionProvider = CompletionProvider()
 	@State private var mousePosition: CGPoint = .zero
 
+    // File navigation state
+    @State private var selectedDirectoryURL: URL?
+    @State private var fileTree: [FileNode] = []
+    @State private var selectedFileURL: URL?
+    @State private var isFileDirty: Bool = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+
+    // Error handling
+    @State private var fileError: FileError?
+    @State private var showingFileError: Bool = false
+
     init() {
         guard let compiler = MetalCompilerService() else {
             fatalError("Metal is not supported on this device")
@@ -53,91 +81,118 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Toolbar
-            HStack {
-                Text("ShaderTune")
-                    .font(.headline)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            // Sidebar: File Navigator
+            FileNavigatorView(
+                selectedDirectoryURL: $selectedDirectoryURL,
+                fileTree: $fileTree,
+                selectedFileURL: $selectedFileURL,
+                onSelectFolder: {
+                    #if os(macOS)
+                    selectFolder()
+                    #endif
+                },
+                onSelectFile: handleFileSelection
+            )
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
+        } content: {
+            // Content: Editor with toolbar and find/replace
+            VStack(spacing: 0) {
+                // Toolbar
+                HStack {
+                    Text("ShaderTune")
+                        .font(.headline)
 
-                Text("Device: \(compiler.deviceInfo)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    if isFileDirty {
+                        Text("●")
+                            .foregroundColor(.orange)
+                            .help("Unsaved changes")
+                    }
 
-                Spacer()
+                    if let filename = selectedFileURL?.lastPathComponent {
+                        Text(filename)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
 
-                Toggle("Auto-compile", isOn: $autoCompile)
-                    .toggleStyle(.switch)
-                    .help("Automatically compile shader as you type")
+                    Text("Device: \(compiler.deviceInfo)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
 
-                if compiler.isCompiling {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .padding(.leading, 8)
+                    Spacer()
+
+                    Toggle("Auto-compile", isOn: $autoCompile)
+                        .toggleStyle(.switch)
+                        .help("Automatically compile shader as you type")
+
+                    if compiler.isCompiling {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .padding(.leading, 8)
+                    }
+
+                    Button("Compile") {
+                        compileNow()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(compiler.isCompiling)
+                }
+                .padding()
+                #if os(macOS)
+                .background(Color(nsColor: .controlBackgroundColor))
+                #else
+                .background(Color(.systemBackground))
+                #endif
+
+                // Find/Replace bar
+                if showingFindReplace {
+                    FindReplaceView(
+                        searchText: $searchText,
+                        replaceText: $replaceText,
+                        isVisible: $showingFindReplace,
+                        onFind: findNext,
+                        onReplace: replaceNext,
+                        onReplaceAll: replaceAll
+                    )
                 }
 
-                Button("Compile") {
-                    compileNow()
+                // Editor with inline error display
+                ZStack(alignment: .topLeading) {
+                    // Editor with native inline errors
+                    ShaderEditorViewWrapper(
+                        source: $shaderSource,
+                        diagnostics: compiler.diagnostics
+                    )
+
+                    // Completion popup
+                    if showingCompletions && !completions.isEmpty {
+                        CompletionView(
+                            completions: completions,
+                            onSelect: { item in
+                                insertCompletion(item)
+                            },
+                            onDismiss: {
+                                showingCompletions = false
+                            }
+                        )
+                        .offset(x: 100, y: 100) // Simple fixed position
+                        .transition(.opacity)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(compiler.isCompiling)
             }
-            .padding()
-            #if os(macOS)
-            .background(Color(nsColor: .controlBackgroundColor))
-            #else
-            .background(Color(.systemBackground))
-            #endif
-
-            // Find/Replace bar
-            if showingFindReplace {
-                FindReplaceView(
-                    searchText: $searchText,
-                    replaceText: $replaceText,
-                    isVisible: $showingFindReplace,
-                    onFind: findNext,
-                    onReplace: replaceNext,
-                    onReplaceAll: replaceAll
-                )
-            }
-			
-			HSplitView {
-				// Editor with inline error display
-				ZStack(alignment: .topLeading) {
-					// Editor with native inline errors
-					ShaderEditorViewWrapper(
-						source: $shaderSource,
-						diagnostics: compiler.diagnostics
-					)
-
-					// Completion popup
-					if showingCompletions && !completions.isEmpty {
-						CompletionView(
-							completions: completions,
-							onSelect: { item in
-								insertCompletion(item)
-							},
-							onDismiss: {
-								showingCompletions = false
-							}
-						)
-						.offset(x: 100, y: 100) // Simple fixed position
-						.transition(.opacity)
-					}
-				}
-				.frame(minWidth: 200, idealWidth: 400)
-
-				// Renderer preview
-				RendererView(mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary)
-					.frame(minWidth: 200, idealWidth: 400)
-					.onContinuousHover { phase in
-						switch phase {
-						case .active(let location):
-							mousePosition = location
-						case .ended:
-							break
-						}
-					}
-			}
+            .navigationSplitViewColumnWidth(min: 300, ideal: 500)
+        } detail: {
+            // Detail: Renderer preview
+            RendererView(mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary)
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        mousePosition = location
+                    case .ended:
+                        break
+                    }
+                }
+                .navigationSplitViewColumnWidth(min: 200, ideal: 400)
         }
         #if os(macOS)
         .onKeyPress("f", phases: .down) { keyPress in
@@ -154,8 +209,32 @@ struct ContentView: View {
             }
             return .ignored
         }
+        .onKeyPress("s", phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                saveCurrentFile()
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress("o", phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                selectFolder()
+                return .handled
+            }
+            return .ignored
+        }
         #endif
+        .alert("File Error", isPresented: $showingFileError, presenting: fileError) { error in
+            Button("OK") { }
+        } message: { error in
+            Text(error.localizedDescription)
+        }
         .onChange(of: shaderSource) { oldValue, newValue in
+            // Mark as dirty when content changes (only for file-backed buffers)
+            if selectedFileURL != nil {
+                isFileDirty = true
+            }
+
             // Auto-trigger completion on typing
             if newValue.count > oldValue.count {
                 updateCompletions()
@@ -166,7 +245,8 @@ struct ContentView: View {
         }
         .onAppear {
             // Compile on first appearance if auto-compile is enabled
-            if autoCompile {
+            // (only if no file is loaded)
+            if autoCompile && selectedFileURL == nil {
                 compileNow()
             }
         }
@@ -243,6 +323,81 @@ struct ContentView: View {
             shaderSource.replaceSubrange(range, with: item.text)
         }
         showingCompletions = false
+    }
+
+    // MARK: - File Operations
+
+    #if os(macOS)
+    private func selectFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Select a folder containing Metal shader files"
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+
+            selectedDirectoryURL = url
+            scanDirectory(url)
+        }
+    }
+    #endif
+
+    private func scanDirectory(_ url: URL) {
+        do {
+            let builder = FileTreeBuilder()
+            fileTree = try builder.buildTree(from: url)
+        } catch {
+            fileError = .scanFailed(url.path)
+            showingFileError = true
+            fileTree = []
+        }
+    }
+
+    private func loadFile(_ url: URL) {
+        // Auto-save current file if dirty
+        if isFileDirty, let currentURL = selectedFileURL {
+            saveFile(currentURL)
+        }
+
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
+            shaderSource = content
+            selectedFileURL = url
+            isFileDirty = false
+
+            // Compile the newly loaded shader if auto-compile is enabled
+            if autoCompile {
+                compileNow()
+            }
+        } catch {
+            fileError = .loadFailed(url.path)
+            showingFileError = true
+        }
+    }
+
+    private func saveFile(_ url: URL) {
+        do {
+            try shaderSource.write(to: url, atomically: true, encoding: .utf8)
+            isFileDirty = false
+        } catch {
+			print(error)
+            fileError = .saveFailed(url.path)
+            showingFileError = true
+        }
+    }
+
+    private func saveCurrentFile() {
+        guard let url = selectedFileURL else { return }
+        saveFile(url)
+    }
+
+    private func handleFileSelection(_ url: URL) {
+        // Don't reload if already selected
+        guard url != selectedFileURL else { return }
+
+        loadFile(url)
     }
 }
 
