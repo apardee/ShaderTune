@@ -15,6 +15,8 @@ struct FileNavigatorView: View {
     let onSelectFolder: () -> Void
     let onSelectFile: (URL) -> Void
 
+    @State private var isRootExpanded: Bool = true
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with folder picker
@@ -54,12 +56,18 @@ struct FileNavigatorView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(selection: $selectedFileURL) {
-                    ForEach(fileTree, id: \.id) { node in
-                        FileNodeView(
-                            node: node,
-                            selectedFileURL: $selectedFileURL,
-                            onSelectFile: onSelectFile
-                        )
+                    DisclosureGroup(isExpanded: $isRootExpanded) {
+                        ForEach(fileTree, id: \.id) { node in
+                            FileNodeView(
+                                node: node,
+                                selectedFileURL: $selectedFileURL,
+                                onSelectFile: onSelectFile
+                            )
+                        }
+                    } label: {
+                        Label(selectedDirectoryURL?.lastPathComponent ?? "Project", systemImage: "folder.fill")
+                            .font(.headline)
+                            .foregroundColor(.accentColor)
                     }
                 }
                 .listStyle(.sidebar)
