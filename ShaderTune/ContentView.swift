@@ -37,7 +37,6 @@ struct ContentView: View {
     """
     @State private var autoCompile = true
     @State private var debounceTask: Task<Void, Never>?
-    @State private var showingTemplatePicker = false
     @State private var showingFindReplace = false
     @State private var searchText = ""
     @State private var replaceText = ""
@@ -65,11 +64,6 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
 
                 Spacer()
-
-                Button(action: { showingTemplatePicker = true }) {
-                    Label("Templates", systemImage: "doc.text")
-                }
-                .help("Choose from shader templates")
 
                 Toggle("Auto-compile", isOn: $autoCompile)
                     .toggleStyle(.switch)
@@ -145,11 +139,6 @@ struct ContentView: View {
 					}
 			}
         }
-        .sheet(isPresented: $showingTemplatePicker) {
-            TemplatePickerView { template in
-                loadTemplate(template)
-            }
-        }
         #if os(macOS)
         .onKeyPress("f", phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
@@ -205,15 +194,6 @@ struct ContentView: View {
         // Cancel any pending debounced compilation
         debounceTask?.cancel()
         compiler.compile(source: shaderSource)
-    }
-
-    // MARK: - Template Loading
-
-    private func loadTemplate(_ template: ShaderTemplate) {
-        shaderSource = template.source
-        if autoCompile {
-            compileNow()
-        }
     }
 
     // MARK: - Find/Replace
