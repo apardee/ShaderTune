@@ -40,7 +40,7 @@ struct FileNavigatorView: View {
             Divider()
 
             // File tree
-            if fileTree.isEmpty {
+            if selectedDirectoryURL == nil {
                 VStack(spacing: 12) {
                     Image(systemName: "folder.badge.questionmark")
                         .font(.system(size: 48))

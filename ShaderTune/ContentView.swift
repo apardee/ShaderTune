@@ -72,7 +72,7 @@ struct ContentView: View {
                 },
                 onSelectFile: handleFileSelection
             )
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } content: {
             // Content: Editor with toolbar and find/replace
             VStack(spacing: 0) {
