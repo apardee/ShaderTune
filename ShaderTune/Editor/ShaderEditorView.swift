@@ -1,6 +1,7 @@
 import SwiftUI
-import CodeEditorView
+@preconcurrency import CodeEditorView
 import LanguageSupport
+
 
 struct ShaderEditorView: View {
     @Binding var source: String

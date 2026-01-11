@@ -21,8 +21,6 @@ struct FileNavigatorView: View {
         VStack(spacing: 0) {
             // Header with folder picker
             HStack {
-                Text("Files")
-                    .font(.headline)
                 Spacer()
                 Button(action: onSelectFolder) {
                     Image(systemName: "folder.badge.plus")

@@ -25,7 +25,7 @@ class MetalCompilerService {
 
         do {
             let options = MTLCompileOptions()
-            options.fastMathEnabled = false
+			options.mathMode = .safe
             options.languageVersion = .version3_2
 
             let library = try device.makeLibrary(source: source, options: options)

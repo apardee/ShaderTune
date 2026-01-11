@@ -78,9 +78,6 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 // Toolbar
                 HStack {
-                    Text("ShaderTune")
-                        .font(.headline)
-
                     if isFileDirty {
                         Text("●")
                             .foregroundColor(.orange)
