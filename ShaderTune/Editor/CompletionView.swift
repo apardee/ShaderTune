@@ -17,7 +17,8 @@ struct CompletionView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
-                            ForEach(Array(completions.enumerated()), id: \.element.id) { index, item in
+                            ForEach(Array(completions.enumerated()), id: \.element.id) {
+                                index, item in
                                 CompletionRow(
                                     item: item,
                                     isSelected: index == selectedIndex
@@ -155,8 +156,11 @@ struct CompletionRow: View {
     CompletionView(
         completions: [
             CompletionItem(text: "float4", kind: .type, description: "4-component float vector"),
-            CompletionItem(text: "fragment", kind: .keyword, description: "Fragment shader function qualifier"),
-            CompletionItem(text: "fma", kind: .function, description: "Fused multiply-add", snippet: "fma($0, $1, $2)"),
+            CompletionItem(
+                text: "fragment", kind: .keyword, description: "Fragment shader function qualifier"),
+            CompletionItem(
+                text: "fma", kind: .function, description: "Fused multiply-add",
+                snippet: "fma($0, $1, $2)"),
         ],
         onSelect: { item in
             print("Selected: \(item.text)")

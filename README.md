@@ -33,3 +33,21 @@ A live Metal shader editor for macOS that provides real-time compilation and ren
 - macOS 14.0+
 - Xcode 15.0+
 - Metal-compatible GPU
+
+## Development
+
+### Code Formatting
+
+This project uses Swift's built-in formatter to maintain consistent code style.
+
+**Format all Swift files:**
+```bash
+swift format format -i -r ShaderTune/
+```
+
+**Check formatting without modifying files:**
+```bash
+swift format lint -r ShaderTune/
+```
+
+The project's formatting rules are defined in `.swift-format` at the repository root.

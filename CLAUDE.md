@@ -107,6 +107,27 @@ Open `ShaderTune.xcodeproj` in Xcode and use Cmd+R to build and run.
   - **LanguageSupport** (included with CodeEditorView)
   - **Rearrange** (dependency of CodeEditorView)
 
+### Code Formatting
+
+The project uses Swift's built-in formatter with configuration in `.swift-format`.
+
+**Format code:**
+```bash
+swift format format -i -r ShaderTune/
+```
+
+**Lint code:**
+```bash
+swift format lint -r ShaderTune/
+```
+
+**Key formatting rules:**
+- Line length: 100 characters
+- Indentation: 4 spaces
+- Trailing commas in multi-element collections
+- File-scoped declarations use `private` access level
+- No force unwraps or force try rules disabled (for Metal API interop)
+
 ## Known Limitations
 
 - Cursor position tracking is simplified (end of text) for code completion

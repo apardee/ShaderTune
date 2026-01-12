@@ -63,9 +63,12 @@ struct FileNavigatorView: View {
                             )
                         }
                     } label: {
-                        Label(selectedDirectoryURL?.lastPathComponent ?? "Project", systemImage: "folder.fill")
-                            .font(.headline)
-                            .foregroundColor(.accentColor)
+                        Label(
+                            selectedDirectoryURL?.lastPathComponent ?? "Project",
+                            systemImage: "folder.fill"
+                        )
+                        .font(.headline)
+                        .foregroundColor(.accentColor)
                     }
                 }
                 .listStyle(.sidebar)
@@ -97,14 +100,17 @@ struct FileNodeView: View {
                     .foregroundColor(.accentColor)
             }
         } else {
-            Button(action: { onSelectFile(node.url) }) {
-                HStack {
-                    Label(node.name, systemImage: "doc.text.fill")
-                        .foregroundColor(selectedFileURL == node.url ? .white : .primary)
-                    Spacer()
+            Button(
+                action: { onSelectFile(node.url) },
+                label: {
+                    HStack {
+                        Label(node.name, systemImage: "doc.text.fill")
+                            .foregroundColor(selectedFileURL == node.url ? .white : .primary)
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
-            }
+            )
             .buttonStyle(.plain)
             .tag(node.url)
         }

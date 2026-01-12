@@ -55,12 +55,13 @@ class FileTreeBuilder {
                 continue
             }
 
-            nodes.append(FileNode(
-                name: fileURL.lastPathComponent,
-                url: fileURL,
-                isDirectory: isDirectory,
-                children: children
-            ))
+            nodes.append(
+                FileNode(
+                    name: fileURL.lastPathComponent,
+                    url: fileURL,
+                    isDirectory: isDirectory,
+                    children: children
+                ))
         }
 
         // Sort: directories first, then alphabetically

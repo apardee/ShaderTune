@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+
 #if os(macOS)
 import AppKit
 #endif
@@ -38,7 +39,7 @@ struct ContentView: View {
     @State private var showingCompletions = false
     @State private var completions: [CompletionItem] = []
     @State private var completionProvider = CompletionProvider()
-	@State private var mousePosition: CGPoint = .zero
+    @State private var mousePosition: CGPoint = .zero
 
     // File navigation state
     @State private var selectedDirectoryURL: URL?
@@ -55,7 +56,7 @@ struct ContentView: View {
         guard let compiler = MetalCompilerService() else {
             fatalError("Metal is not supported on this device")
         }
-		self.compiler = compiler
+        self.compiler = compiler
     }
 
     var body: some View {
@@ -137,9 +138,12 @@ struct ContentView: View {
                     VStack(spacing: 20) {
                         Spacer()
 
-                        Image(systemName: selectedDirectoryURL != nil ? "doc.text.magnifyingglass" : "folder.badge.plus")
-                            .font(.system(size: 64))
-                            .foregroundColor(.secondary)
+                        Image(
+                            systemName: selectedDirectoryURL != nil
+                                ? "doc.text.magnifyingglass" : "folder.badge.plus"
+                        )
+                        .font(.system(size: 64))
+                        .foregroundColor(.secondary)
 
                         VStack(spacing: 8) {
                             Text("No Shader Selected")
@@ -147,11 +151,13 @@ struct ContentView: View {
                                 .fontWeight(.semibold)
 
                             if selectedDirectoryURL != nil {
-                                Text("Select a Metal shader file (.metal) from the sidebar to begin editing")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 40)
+                                Text(
+                                    "Select a Metal shader file (.metal) from the sidebar to begin editing"
+                                )
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
                             } else {
                                 Text("Open a folder (Cmd+O) or drag a shader file here to begin")
                                     .font(.body)
@@ -183,7 +189,7 @@ struct ContentView: View {
                                     showingCompletions = false
                                 }
                             )
-                            .offset(x: 100, y: 100) // Simple fixed position
+                            .offset(x: 100, y: 100)  // Simple fixed position
                             .transition(.opacity)
                         }
                     }
@@ -193,16 +199,18 @@ struct ContentView: View {
         } detail: {
             // Detail: Renderer preview
             if selectedFileURL != nil && compiler.compiledLibrary != nil {
-                RendererView(mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary)
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active(let location):
-                            mousePosition = location
-                        case .ended:
-                            break
-                        }
+                RendererView(
+                    mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary
+                )
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        mousePosition = location
+                    case .ended:
+                        break
                     }
-                    .navigationSplitViewColumnWidth(min: 200, ideal: 400)
+                }
+                .navigationSplitViewColumnWidth(min: 200, ideal: 400)
             } else {
                 // Empty state when no shader is compiled
                 VStack(spacing: 20) {
@@ -269,7 +277,7 @@ struct ContentView: View {
         }
         #endif
         .alert("File Error", isPresented: $showingFileError, presenting: fileError) { error in
-            Button("OK") { }
+            Button("OK") {}
         } message: { error in
             Text(error.localizedDescription)
         }
@@ -351,7 +359,8 @@ struct ContentView: View {
     // MARK: - Code Completion
 
     private func triggerCompletion() {
-        let cursorPosition = shaderSource.endIndex // Simplified - would need actual cursor tracking
+        // Simplified - would need actual cursor tracking
+        let cursorPosition = shaderSource.endIndex
         completions = completionProvider.completions(for: shaderSource, at: cursorPosition)
         showingCompletions = !completions.isEmpty
     }
@@ -432,7 +441,7 @@ struct ContentView: View {
             try shaderSource.write(to: url, atomically: true, encoding: .utf8)
             isFileDirty = false
         } catch {
-			print(error)
+            print(error)
             fileError = .saveFailed(url.path)
             showingFileError = true
         }

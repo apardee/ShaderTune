@@ -33,7 +33,8 @@ class CompletionProvider {
     ///   - source: The source code
     ///   - cursorPosition: The cursor position
     /// - Returns: The partial word or nil if no word is being typed
-    private func extractPartialWord(from source: String, at cursorPosition: String.Index) -> String? {
+    private func extractPartialWord(from source: String, at cursorPosition: String.Index) -> String?
+    {
         guard cursorPosition <= source.endIndex else { return nil }
 
         // Find the start of the current word by going backwards from cursor

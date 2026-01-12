@@ -1,6 +1,6 @@
 import Foundation
-import RegexBuilder
 import LanguageSupport
+import RegexBuilder
 
 /// MSL keyword and identifier definitions
 private let mslReservedIdentifiers: [String] = {
@@ -82,7 +82,7 @@ private let mslReservedIdentifiers: [String] = {
 }()
 
 private let mslReservedOperators = [
-    ".", ",", ":", ";", "=", "@", "#", "&", "->", "`", "?", "!", "~"
+    ".", ",", ":", ";", "=", "@", "#", "&", "->", "`", "?", "!", "~",
 ]
 
 extension LanguageConfiguration {
@@ -93,8 +93,15 @@ extension LanguageConfiguration {
         let numberRegex: Regex<Substring> = Regex {
             Optionally { "-" }
             ChoiceOf {
-                Regex { /0x/; OneOrMore { /[0-9a-fA-F]/ } }  // Hex
-                Regex { OneOrMore { /[0-9]/ }; "."; OneOrMore { /[0-9]/ } }  // Float
+                Regex {
+                    /0x/
+                    OneOrMore { /[0-9a-fA-F]/ }
+                }  // Hex
+                Regex {
+                    OneOrMore { /[0-9]/ }
+                    "."
+                    OneOrMore { /[0-9]/ }
+                }  // Float
                 Regex { OneOrMore { /[0-9]/ } }  // Integer
             }
             Optionally { /[fFuU]/ }  // Suffix

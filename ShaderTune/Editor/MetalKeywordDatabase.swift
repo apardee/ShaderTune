@@ -13,15 +13,23 @@ struct MetalKeywordDatabase {
 
     static let keywords: [CompletionItem] = [
         // Function qualifiers
-        CompletionItem(text: "kernel", kind: .keyword, description: "Compute kernel function qualifier"),
-        CompletionItem(text: "vertex", kind: .keyword, description: "Vertex shader function qualifier"),
-        CompletionItem(text: "fragment", kind: .keyword, description: "Fragment shader function qualifier"),
+        CompletionItem(
+            text: "kernel", kind: .keyword, description: "Compute kernel function qualifier"),
+        CompletionItem(
+            text: "vertex", kind: .keyword, description: "Vertex shader function qualifier"),
+        CompletionItem(
+            text: "fragment", kind: .keyword, description: "Fragment shader function qualifier"),
 
         // Address space qualifiers
-        CompletionItem(text: "constant", kind: .keyword, description: "Constant address space qualifier"),
-        CompletionItem(text: "device", kind: .keyword, description: "Device address space qualifier"),
-        CompletionItem(text: "threadgroup", kind: .keyword, description: "Threadgroup address space qualifier"),
-        CompletionItem(text: "threadgroup_imageblock", kind: .keyword, description: "Threadgroup imageblock address space"),
+        CompletionItem(
+            text: "constant", kind: .keyword, description: "Constant address space qualifier"),
+        CompletionItem(
+            text: "device", kind: .keyword, description: "Device address space qualifier"),
+        CompletionItem(
+            text: "threadgroup", kind: .keyword, description: "Threadgroup address space qualifier"),
+        CompletionItem(
+            text: "threadgroup_imageblock", kind: .keyword,
+            description: "Threadgroup imageblock address space"),
 
         // Type qualifiers
         CompletionItem(text: "const", kind: .keyword, description: "Constant type qualifier"),
@@ -41,7 +49,8 @@ struct MetalKeywordDatabase {
         CompletionItem(text: "break", kind: .keyword, description: "Break statement"),
         CompletionItem(text: "continue", kind: .keyword, description: "Continue statement"),
         CompletionItem(text: "return", kind: .keyword, description: "Return statement"),
-        CompletionItem(text: "discard_fragment", kind: .keyword, description: "Discard current fragment"),
+        CompletionItem(
+            text: "discard_fragment", kind: .keyword, description: "Discard current fragment"),
 
         // Namespace
         CompletionItem(text: "namespace", kind: .keyword, description: "Namespace declaration"),
@@ -102,10 +111,14 @@ struct MetalKeywordDatabase {
         CompletionItem(text: "float4", kind: .type, description: "4-component float vector"),
 
         // Packed vector types
-        CompletionItem(text: "packed_float3", kind: .type, description: "Packed 3-component float vector"),
-        CompletionItem(text: "packed_float4", kind: .type, description: "Packed 4-component float vector"),
-        CompletionItem(text: "packed_half3", kind: .type, description: "Packed 3-component half vector"),
-        CompletionItem(text: "packed_half4", kind: .type, description: "Packed 4-component half vector"),
+        CompletionItem(
+            text: "packed_float3", kind: .type, description: "Packed 3-component float vector"),
+        CompletionItem(
+            text: "packed_float4", kind: .type, description: "Packed 4-component float vector"),
+        CompletionItem(
+            text: "packed_half3", kind: .type, description: "Packed 3-component half vector"),
+        CompletionItem(
+            text: "packed_half4", kind: .type, description: "Packed 4-component half vector"),
 
         // Matrix types
         CompletionItem(text: "float2x2", kind: .type, description: "2x2 float matrix"),
@@ -142,73 +155,148 @@ struct MetalKeywordDatabase {
 
     static let builtInFunctions: [CompletionItem] = [
         // Math functions
-        CompletionItem(text: "abs", kind: .function, description: "Absolute value", snippet: "abs($0)"),
-        CompletionItem(text: "acos", kind: .function, description: "Arc cosine", snippet: "acos($0)"),
+        CompletionItem(
+            text: "abs", kind: .function, description: "Absolute value", snippet: "abs($0)"),
+        CompletionItem(
+            text: "acos", kind: .function, description: "Arc cosine", snippet: "acos($0)"),
         CompletionItem(text: "asin", kind: .function, description: "Arc sine", snippet: "asin($0)"),
-        CompletionItem(text: "atan", kind: .function, description: "Arc tangent", snippet: "atan($0)"),
-        CompletionItem(text: "atan2", kind: .function, description: "Arc tangent of y/x", snippet: "atan2($0, $1)"),
-        CompletionItem(text: "ceil", kind: .function, description: "Round up to nearest integer", snippet: "ceil($0)"),
-        CompletionItem(text: "clamp", kind: .function, description: "Clamp value between min and max", snippet: "clamp($0, $1, $2)"),
+        CompletionItem(
+            text: "atan", kind: .function, description: "Arc tangent", snippet: "atan($0)"),
+        CompletionItem(
+            text: "atan2", kind: .function, description: "Arc tangent of y/x",
+            snippet: "atan2($0, $1)"),
+        CompletionItem(
+            text: "ceil", kind: .function, description: "Round up to nearest integer",
+            snippet: "ceil($0)"),
+        CompletionItem(
+            text: "clamp", kind: .function, description: "Clamp value between min and max",
+            snippet: "clamp($0, $1, $2)"),
         CompletionItem(text: "cos", kind: .function, description: "Cosine", snippet: "cos($0)"),
-        CompletionItem(text: "cross", kind: .function, description: "Cross product", snippet: "cross($0, $1)"),
-        CompletionItem(text: "degrees", kind: .function, description: "Convert radians to degrees", snippet: "degrees($0)"),
-        CompletionItem(text: "distance", kind: .function, description: "Distance between two points", snippet: "distance($0, $1)"),
-        CompletionItem(text: "dot", kind: .function, description: "Dot product", snippet: "dot($0, $1)"),
-        CompletionItem(text: "exp", kind: .function, description: "Exponential function", snippet: "exp($0)"),
-        CompletionItem(text: "exp2", kind: .function, description: "Base-2 exponential", snippet: "exp2($0)"),
-        CompletionItem(text: "floor", kind: .function, description: "Round down to nearest integer", snippet: "floor($0)"),
-        CompletionItem(text: "fma", kind: .function, description: "Fused multiply-add", snippet: "fma($0, $1, $2)"),
-        CompletionItem(text: "fmax", kind: .function, description: "Maximum value", snippet: "fmax($0, $1)"),
-        CompletionItem(text: "fmin", kind: .function, description: "Minimum value", snippet: "fmin($0, $1)"),
-        CompletionItem(text: "fmod", kind: .function, description: "Floating-point remainder", snippet: "fmod($0, $1)"),
-        CompletionItem(text: "fract", kind: .function, description: "Fractional part", snippet: "fract($0)"),
-        CompletionItem(text: "length", kind: .function, description: "Vector length", snippet: "length($0)"),
-        CompletionItem(text: "log", kind: .function, description: "Natural logarithm", snippet: "log($0)"),
-        CompletionItem(text: "log2", kind: .function, description: "Base-2 logarithm", snippet: "log2($0)"),
-        CompletionItem(text: "max", kind: .function, description: "Maximum value", snippet: "max($0, $1)"),
-        CompletionItem(text: "min", kind: .function, description: "Minimum value", snippet: "min($0, $1)"),
-        CompletionItem(text: "mix", kind: .function, description: "Linear interpolation", snippet: "mix($0, $1, $2)"),
-        CompletionItem(text: "normalize", kind: .function, description: "Normalize vector", snippet: "normalize($0)"),
-        CompletionItem(text: "pow", kind: .function, description: "Power function", snippet: "pow($0, $1)"),
-        CompletionItem(text: "radians", kind: .function, description: "Convert degrees to radians", snippet: "radians($0)"),
-        CompletionItem(text: "reflect", kind: .function, description: "Reflect vector", snippet: "reflect($0, $1)"),
-        CompletionItem(text: "refract", kind: .function, description: "Refract vector", snippet: "refract($0, $1, $2)"),
-        CompletionItem(text: "round", kind: .function, description: "Round to nearest integer", snippet: "round($0)"),
-        CompletionItem(text: "rsqrt", kind: .function, description: "Reciprocal square root", snippet: "rsqrt($0)"),
-        CompletionItem(text: "saturate", kind: .function, description: "Clamp to [0, 1]", snippet: "saturate($0)"),
-        CompletionItem(text: "sign", kind: .function, description: "Sign of value", snippet: "sign($0)"),
+        CompletionItem(
+            text: "cross", kind: .function, description: "Cross product", snippet: "cross($0, $1)"),
+        CompletionItem(
+            text: "degrees", kind: .function, description: "Convert radians to degrees",
+            snippet: "degrees($0)"),
+        CompletionItem(
+            text: "distance", kind: .function, description: "Distance between two points",
+            snippet: "distance($0, $1)"),
+        CompletionItem(
+            text: "dot", kind: .function, description: "Dot product", snippet: "dot($0, $1)"),
+        CompletionItem(
+            text: "exp", kind: .function, description: "Exponential function", snippet: "exp($0)"),
+        CompletionItem(
+            text: "exp2", kind: .function, description: "Base-2 exponential", snippet: "exp2($0)"),
+        CompletionItem(
+            text: "floor", kind: .function, description: "Round down to nearest integer",
+            snippet: "floor($0)"),
+        CompletionItem(
+            text: "fma", kind: .function, description: "Fused multiply-add",
+            snippet: "fma($0, $1, $2)"),
+        CompletionItem(
+            text: "fmax", kind: .function, description: "Maximum value", snippet: "fmax($0, $1)"),
+        CompletionItem(
+            text: "fmin", kind: .function, description: "Minimum value", snippet: "fmin($0, $1)"),
+        CompletionItem(
+            text: "fmod", kind: .function, description: "Floating-point remainder",
+            snippet: "fmod($0, $1)"),
+        CompletionItem(
+            text: "fract", kind: .function, description: "Fractional part", snippet: "fract($0)"),
+        CompletionItem(
+            text: "length", kind: .function, description: "Vector length", snippet: "length($0)"),
+        CompletionItem(
+            text: "log", kind: .function, description: "Natural logarithm", snippet: "log($0)"),
+        CompletionItem(
+            text: "log2", kind: .function, description: "Base-2 logarithm", snippet: "log2($0)"),
+        CompletionItem(
+            text: "max", kind: .function, description: "Maximum value", snippet: "max($0, $1)"),
+        CompletionItem(
+            text: "min", kind: .function, description: "Minimum value", snippet: "min($0, $1)"),
+        CompletionItem(
+            text: "mix", kind: .function, description: "Linear interpolation",
+            snippet: "mix($0, $1, $2)"),
+        CompletionItem(
+            text: "normalize", kind: .function, description: "Normalize vector",
+            snippet: "normalize($0)"),
+        CompletionItem(
+            text: "pow", kind: .function, description: "Power function", snippet: "pow($0, $1)"),
+        CompletionItem(
+            text: "radians", kind: .function, description: "Convert degrees to radians",
+            snippet: "radians($0)"),
+        CompletionItem(
+            text: "reflect", kind: .function, description: "Reflect vector",
+            snippet: "reflect($0, $1)"),
+        CompletionItem(
+            text: "refract", kind: .function, description: "Refract vector",
+            snippet: "refract($0, $1, $2)"),
+        CompletionItem(
+            text: "round", kind: .function, description: "Round to nearest integer",
+            snippet: "round($0)"),
+        CompletionItem(
+            text: "rsqrt", kind: .function, description: "Reciprocal square root",
+            snippet: "rsqrt($0)"),
+        CompletionItem(
+            text: "saturate", kind: .function, description: "Clamp to [0, 1]",
+            snippet: "saturate($0)"),
+        CompletionItem(
+            text: "sign", kind: .function, description: "Sign of value", snippet: "sign($0)"),
         CompletionItem(text: "sin", kind: .function, description: "Sine", snippet: "sin($0)"),
-        CompletionItem(text: "smoothstep", kind: .function, description: "Smooth interpolation", snippet: "smoothstep($0, $1, $2)"),
-        CompletionItem(text: "sqrt", kind: .function, description: "Square root", snippet: "sqrt($0)"),
-        CompletionItem(text: "step", kind: .function, description: "Step function", snippet: "step($0, $1)"),
+        CompletionItem(
+            text: "smoothstep", kind: .function, description: "Smooth interpolation",
+            snippet: "smoothstep($0, $1, $2)"),
+        CompletionItem(
+            text: "sqrt", kind: .function, description: "Square root", snippet: "sqrt($0)"),
+        CompletionItem(
+            text: "step", kind: .function, description: "Step function", snippet: "step($0, $1)"),
         CompletionItem(text: "tan", kind: .function, description: "Tangent", snippet: "tan($0)"),
-        CompletionItem(text: "trunc", kind: .function, description: "Truncate to integer", snippet: "trunc($0)"),
+        CompletionItem(
+            text: "trunc", kind: .function, description: "Truncate to integer", snippet: "trunc($0)"
+        ),
 
         // Geometric functions
-        CompletionItem(text: "faceforward", kind: .function, description: "Orient normal to face viewer", snippet: "faceforward($0, $1, $2)"),
+        CompletionItem(
+            text: "faceforward", kind: .function, description: "Orient normal to face viewer",
+            snippet: "faceforward($0, $1, $2)"),
 
         // Texture sampling
-        CompletionItem(text: "sample", kind: .function, description: "Sample texture", snippet: "sample($0, $1)"),
-        CompletionItem(text: "read", kind: .function, description: "Read from texture", snippet: "read($0)"),
-        CompletionItem(text: "write", kind: .function, description: "Write to texture", snippet: "write($0, $1)"),
-        CompletionItem(text: "gather", kind: .function, description: "Gather texture samples", snippet: "gather($0, $1)"),
+        CompletionItem(
+            text: "sample", kind: .function, description: "Sample texture",
+            snippet: "sample($0, $1)"),
+        CompletionItem(
+            text: "read", kind: .function, description: "Read from texture", snippet: "read($0)"),
+        CompletionItem(
+            text: "write", kind: .function, description: "Write to texture",
+            snippet: "write($0, $1)"),
+        CompletionItem(
+            text: "gather", kind: .function, description: "Gather texture samples",
+            snippet: "gather($0, $1)"),
     ]
 
     // MARK: - Attributes
 
     static let attributes: [CompletionItem] = [
-        CompletionItem(text: "[[stage_in]]", kind: .attribute, description: "Vertex function input"),
-        CompletionItem(text: "[[position]]", kind: .attribute, description: "Vertex position output"),
+        CompletionItem(
+            text: "[[stage_in]]", kind: .attribute, description: "Vertex function input"),
+        CompletionItem(
+            text: "[[position]]", kind: .attribute, description: "Vertex position output"),
         CompletionItem(text: "[[vertex_id]]", kind: .attribute, description: "Vertex ID"),
         CompletionItem(text: "[[instance_id]]", kind: .attribute, description: "Instance ID"),
         CompletionItem(text: "[[buffer(0)]]", kind: .attribute, description: "Buffer argument"),
         CompletionItem(text: "[[texture(0)]]", kind: .attribute, description: "Texture argument"),
         CompletionItem(text: "[[sampler(0)]]", kind: .attribute, description: "Sampler argument"),
         CompletionItem(text: "[[attribute(0)]]", kind: .attribute, description: "Vertex attribute"),
-        CompletionItem(text: "[[color(0)]]", kind: .attribute, description: "Fragment color output"),
-        CompletionItem(text: "[[thread_position_in_grid]]", kind: .attribute, description: "Thread position in grid"),
-        CompletionItem(text: "[[thread_position_in_threadgroup]]", kind: .attribute, description: "Thread position in threadgroup"),
-        CompletionItem(text: "[[threadgroup_position_in_grid]]", kind: .attribute, description: "Threadgroup position in grid"),
-        CompletionItem(text: "[[threads_per_threadgroup]]", kind: .attribute, description: "Threads per threadgroup"),
+        CompletionItem(
+            text: "[[color(0)]]", kind: .attribute, description: "Fragment color output"),
+        CompletionItem(
+            text: "[[thread_position_in_grid]]", kind: .attribute,
+            description: "Thread position in grid"),
+        CompletionItem(
+            text: "[[thread_position_in_threadgroup]]", kind: .attribute,
+            description: "Thread position in threadgroup"),
+        CompletionItem(
+            text: "[[threadgroup_position_in_grid]]", kind: .attribute,
+            description: "Threadgroup position in grid"),
+        CompletionItem(
+            text: "[[threads_per_threadgroup]]", kind: .attribute,
+            description: "Threads per threadgroup"),
     ]
 }
