@@ -1,5 +1,10 @@
 import Foundation
 import MetalKit
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct Uniforms {
     let time: Float
@@ -82,7 +87,11 @@ extension Renderer: MTKViewDelegate {
         let time = Float(CACurrentMediaTime() - startTime)
         let resolution = SIMD2<Float>(Float(view.bounds.size.width), Float(view.bounds.size.height))
         let mouse = SIMD2<Float>(Float(mousePosition.x), Float(mousePosition.y))
+        #if os(macOS)
         let scale = NSScreen.main!.backingScaleFactor
+        #else
+        let scale = UIScreen.main.scale
+        #endif
         var uniforms = Uniforms(
             time: time, mouse: mouse, resolution: resolution, scale: Float(scale))
 
