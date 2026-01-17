@@ -96,41 +96,83 @@ jobs:
         run: |
           xcodebuild clean -project ShaderTune.xcodeproj -scheme ShaderTune -sdk macosx
 
-      - name: Convert .icon to .icns for CI build
+      - name: Convert .icon bundle to .appiconset for CI build
         run: |
-          # Extract SVG from the icon bundle
-          SVG_PATH="ShaderTune/ShaderTune.icon/Assets/ShaderTuneIcon.svg"
+          # Use iconutil to convert the .icon bundle to iconset (intermediate format)
+          iconutil --convert iconset --output /tmp/ShaderTune.iconset ShaderTune/ShaderTune.icon
 
-          # Create a temporary directory for icon generation
-          mkdir -p /tmp/icon.iconset
-
-          # Use iconutil to create ICNS from SVG (requires rasterization first)
-          # For CI, we'll use sips to rasterize the SVG at different sizes
-          for size in 16 32 128 256 512; do
-            sips -s format png -z $size $size "$SVG_PATH" --out "/tmp/icon.iconset/icon_${size}x${size}.png" 2>/dev/null || true
-            if [ $size -ne 512 ]; then
-              size2=$((size * 2))
-              sips -s format png -z $size2 $size2 "$SVG_PATH" --out "/tmp/icon.iconset/icon_${size}x${size}@2x.png" 2>/dev/null || true
-            fi
-          done
-
-          # Create 1024x1024 version
-          sips -s format png -z 1024 1024 "$SVG_PATH" --out "/tmp/icon.iconset/icon_512x512@2x.png" 2>/dev/null || true
-
-          # Convert iconset to icns
-          iconutil -c icns /tmp/icon.iconset -o /tmp/AppIcon.icns
-
-          # Create proper asset catalog structure
+          # Create AppIcon.appiconset structure
           mkdir -p ShaderTune/Assets.xcassets/AppIcon.appiconset
-          cp /tmp/AppIcon.icns ShaderTune/Assets.xcassets/AppIcon.appiconset/
 
-          # Create Contents.json for the app icon
+          # Map iconset files to appiconset structure for macOS
+          # Copy all generated icon files to the appiconset
+          if [ -d "/tmp/ShaderTune.iconset" ]; then
+            cp /tmp/ShaderTune.iconset/*.png ShaderTune/Assets.xcassets/AppIcon.appiconset/ 2>/dev/null || true
+          fi
+
+          # Create Contents.json for macOS app icon
           cat > ShaderTune/Assets.xcassets/AppIcon.appiconset/Contents.json << 'EOF'
           {
             "images" : [
               {
-                "filename" : "AppIcon.icns",
-                "idiom" : "mac"
+                "filename" : "icon_16x16.png",
+                "idiom" : "mac",
+                "scale" : "1x",
+                "size" : "16x16"
+              },
+              {
+                "filename" : "icon_16x16@2x.png",
+                "idiom" : "mac",
+                "scale" : "2x",
+                "size" : "16x16"
+              },
+              {
+                "filename" : "icon_32x32.png",
+                "idiom" : "mac",
+                "scale" : "1x",
+                "size" : "32x32"
+              },
+              {
+                "filename" : "icon_32x32@2x.png",
+                "idiom" : "mac",
+                "scale" : "2x",
+                "size" : "32x32"
+              },
+              {
+                "filename" : "icon_128x128.png",
+                "idiom" : "mac",
+                "scale" : "1x",
+                "size" : "128x128"
+              },
+              {
+                "filename" : "icon_128x128@2x.png",
+                "idiom" : "mac",
+                "scale" : "2x",
+                "size" : "128x128"
+              },
+              {
+                "filename" : "icon_256x256.png",
+                "idiom" : "mac",
+                "scale" : "1x",
+                "size" : "256x256"
+              },
+              {
+                "filename" : "icon_256x256@2x.png",
+                "idiom" : "mac",
+                "scale" : "2x",
+                "size" : "256x256"
+              },
+              {
+                "filename" : "icon_512x512.png",
+                "idiom" : "mac",
+                "scale" : "1x",
+                "size" : "512x512"
+              },
+              {
+                "filename" : "icon_512x512@2x.png",
+                "idiom" : "mac",
+                "scale" : "2x",
+                "size" : "512x512"
               }
             ],
             "info" : {
@@ -139,6 +181,9 @@ jobs:
             }
           }
           EOF
+
+          echo "Generated icon files:"
+          ls -la ShaderTune/Assets.xcassets/AppIcon.appiconset/
 
           # Temporarily rename the .icon bundle to prevent actool from trying to process it
           mv ShaderTune/ShaderTune.icon /tmp/ShaderTune.icon.backup
@@ -178,6 +223,19 @@ jobs:
           ls -la $RUNNER_TEMP/ShaderTune.xcarchive/Products/
           echo "Archive Info.plist:"
           cat $RUNNER_TEMP/ShaderTune.xcarchive/Info.plist
+
+          # Find and verify the app icon
+          APP_PATH=$(find $RUNNER_TEMP/ShaderTune.xcarchive/Products -name "*.app" -type d | head -n 1)
+          echo "Checking for app icon in: $APP_PATH"
+          ls -la "$APP_PATH/Contents/Resources/" | grep -i icon || echo "No icon files found"
+
+          # Check if AppIcon.icns exists
+          if [ -f "$APP_PATH/Contents/Resources/AppIcon.icns" ]; then
+            echo "AppIcon.icns found!"
+            file "$APP_PATH/Contents/Resources/AppIcon.icns"
+          else
+            echo "WARNING: AppIcon.icns not found in app bundle!"
+          fi
 
       - name: Export PKG
         timeout-minutes: 10
@@ -227,15 +285,20 @@ jobs:
 
           # Upload to TestFlight using xcrun altool
           echo "Starting upload to TestFlight..."
-          if xcrun altool --upload-app \
+          OUTPUT=$(xcrun altool --upload-app \
             --type macos \
             --file $RUNNER_TEMP/build/ShaderTune.pkg \
             --apiKey $APP_STORE_CONNECT_API_KEY_ID \
-            --apiIssuer $APP_STORE_CONNECT_ISSUER_ID; then
-            echo "Upload to TestFlight succeeded!"
-          else
+            --apiIssuer $APP_STORE_CONNECT_ISSUER_ID 2>&1)
+
+          echo "$OUTPUT"
+
+          # Check if upload actually succeeded (altool returns 0 even on failure)
+          if echo "$OUTPUT" | grep -q "UPLOAD FAILED\|ERROR:"; then
             echo "Upload to TestFlight failed!"
             exit 1
+          else
+            echo "Upload to TestFlight succeeded!"
           fi
 
       - name: Restore icon bundle and clean up
