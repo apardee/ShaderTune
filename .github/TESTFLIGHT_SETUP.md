@@ -213,6 +213,12 @@ openssl rand -base64 32 | pbcopy
 - If it does, verify the workflow is using `agvtool` correctly
 - Each workflow run uses a unique GitHub run number as the build number
 
+**"CompileAssetCatalogVariant failed" or asset catalog crashes**
+- This is a known issue with Xcode 26 and .icon bundles on CI
+- The workflow includes a workaround that temporarily removes the icon during build
+- If you still see this error, ensure the workaround step is present in the workflow
+- The app will build without an icon, which can be added later through App Store Connect
+
 ---
 
 ## Important Notes
@@ -226,6 +232,7 @@ openssl rand -base64 32 | pbcopy
    - Platform: **macOS**
    - Bundle ID must match `me.apardee.ShaderTune`
 5. **Build Numbers:** Automatically incremented using GitHub workflow run numbers - no manual intervention needed
+6. **App Icon Workaround:** The workflow temporarily removes the ShaderTune.icon bundle during build to avoid an Xcode 26 asset catalog compiler crash. The icon is restored after the build completes. This doesn't affect the final app - you can add the icon through App Store Connect or update the workflow once the Xcode issue is resolved.
 
 ---
 

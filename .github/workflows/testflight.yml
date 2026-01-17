@@ -69,6 +69,10 @@ jobs:
         run: |
           xcodebuild clean -project ShaderTune.xcodeproj -scheme ShaderTune -sdk macosx
 
+      - name: Temporarily remove icon bundle to avoid Xcode 26 crash
+        run: |
+          mv ShaderTune/ShaderTune.icon /tmp/ShaderTune.icon.backup || true
+
       - name: Build and Archive
         run: |
           xcodebuild -project ShaderTune.xcodeproj \
@@ -81,6 +85,8 @@ jobs:
             DEVELOPMENT_TEAM=2HG25473GL \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             ONLY_ACTIVE_ARCH=NO \
+            ASSETCATALOG_COMPILER_SKIP_APP_STORE_DEPLOYMENT=NO \
+            ASSETCATALOG_COMPILER_APPICON_NAME="" \
             -allowProvisioningUpdates \
             archive
 
@@ -111,6 +117,11 @@ jobs:
             --file $RUNNER_TEMP/build/ShaderTune.pkg \
             --apiKey $APP_STORE_CONNECT_API_KEY_ID \
             --apiIssuer $APP_STORE_CONNECT_ISSUER_ID
+
+      - name: Restore icon bundle
+        if: always()
+        run: |
+          mv /tmp/ShaderTune.icon.backup ShaderTune/ShaderTune.icon || true
 
       - name: Clean up keychain and provisioning profile
         if: always()
