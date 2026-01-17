@@ -96,6 +96,53 @@ jobs:
         run: |
           xcodebuild clean -project ShaderTune.xcodeproj -scheme ShaderTune -sdk macosx
 
+      - name: Convert .icon to .icns for CI build
+        run: |
+          # Extract SVG from the icon bundle
+          SVG_PATH="ShaderTune/ShaderTune.icon/Assets/ShaderTuneIcon.svg"
+
+          # Create a temporary directory for icon generation
+          mkdir -p /tmp/icon.iconset
+
+          # Use iconutil to create ICNS from SVG (requires rasterization first)
+          # For CI, we'll use sips to rasterize the SVG at different sizes
+          for size in 16 32 128 256 512; do
+            sips -s format png -z $size $size "$SVG_PATH" --out "/tmp/icon.iconset/icon_${size}x${size}.png" 2>/dev/null || true
+            if [ $size -ne 512 ]; then
+              size2=$((size * 2))
+              sips -s format png -z $size2 $size2 "$SVG_PATH" --out "/tmp/icon.iconset/icon_${size}x${size}@2x.png" 2>/dev/null || true
+            fi
+          done
+
+          # Create 1024x1024 version
+          sips -s format png -z 1024 1024 "$SVG_PATH" --out "/tmp/icon.iconset/icon_512x512@2x.png" 2>/dev/null || true
+
+          # Convert iconset to icns
+          iconutil -c icns /tmp/icon.iconset -o /tmp/AppIcon.icns
+
+          # Create proper asset catalog structure
+          mkdir -p ShaderTune/Assets.xcassets/AppIcon.appiconset
+          cp /tmp/AppIcon.icns ShaderTune/Assets.xcassets/AppIcon.appiconset/
+
+          # Create Contents.json for the app icon
+          cat > ShaderTune/Assets.xcassets/AppIcon.appiconset/Contents.json << 'EOF'
+          {
+            "images" : [
+              {
+                "filename" : "AppIcon.icns",
+                "idiom" : "mac"
+              }
+            ],
+            "info" : {
+              "author" : "xcode",
+              "version" : 1
+            }
+          }
+          EOF
+
+          # Temporarily rename the .icon bundle to prevent actool from trying to process it
+          mv ShaderTune/ShaderTune.icon /tmp/ShaderTune.icon.backup
+
       - name: Build and Archive
         run: |
           xcodebuild -project ShaderTune.xcodeproj \
@@ -108,6 +155,7 @@ jobs:
             DEVELOPMENT_TEAM=2HG25473GL \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             ONLY_ACTIVE_ARCH=NO \
+            ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon \
             -allowProvisioningUpdates \
             archive
 
@@ -189,6 +237,15 @@ jobs:
             echo "Upload to TestFlight failed!"
             exit 1
           fi
+
+      - name: Restore icon bundle and clean up
+        if: always()
+        run: |
+          # Restore the original .icon bundle
+          mv /tmp/ShaderTune.icon.backup ShaderTune/ShaderTune.icon || true
+
+          # Remove the temporary AppIcon.appiconset
+          rm -rf ShaderTune/Assets.xcassets/AppIcon.appiconset || true
 
       - name: Clean up keychain and provisioning profile
         if: always()
