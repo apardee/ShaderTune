@@ -65,6 +65,10 @@ jobs:
         run: |
           xcodebuild -resolvePackageDependencies -project ShaderTune.xcodeproj -scheme ShaderTune
 
+      - name: Clean Build Folder
+        run: |
+          xcodebuild clean -project ShaderTune.xcodeproj -scheme ShaderTune -sdk macosx
+
       - name: Build and Archive
         run: |
           xcodebuild -project ShaderTune.xcodeproj \
@@ -76,6 +80,8 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=2HG25473GL \
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            ONLY_ACTIVE_ARCH=NO \
+            -allowProvisioningUpdates \
             archive
 
       - name: Export PKG

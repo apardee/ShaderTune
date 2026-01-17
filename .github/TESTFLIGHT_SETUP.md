@@ -12,28 +12,30 @@ You need to configure the following secrets in your GitHub repository:
 **Settings > Secrets and variables > Actions > New repository secret**
 
 ### 1. BUILD_CERTIFICATE_BASE64
-**What it is:** Your Apple Distribution certificate exported as a .p12 file, then base64 encoded.
+**What it is:** Your Apple Distribution AND Mac Installer Distribution certificates exported together as a .p12 file, then base64 encoded.
 
 **How to get it:**
 1. Open **Keychain Access** on your Mac
-2. Find your **Apple Distribution** certificate (should be under "My Certificates")
-   - Look for: "Apple Distribution: [Your Name] ([Team ID])"
-3. Right-click the certificate and select **Export "Apple Distribution..."**
-4. Choose **File Format: Personal Information Exchange (.p12)**
-5. Save it with a password (you'll need this for P12_PASSWORD)
-6. Convert to base64:
+2. Find BOTH certificates under "My Certificates":
+   - **Apple Distribution: [Your Name] ([Team ID])**
+   - **Mac Installer Distribution: [Your Name] ([Team ID])**
+3. Select both certificates (hold Cmd and click each one)
+4. Right-click and select **Export 2 items...**
+5. Choose **File Format: Personal Information Exchange (.p12)**
+6. Save it with a password (you'll need this for P12_PASSWORD)
+7. Convert to base64:
    ```bash
    base64 -i Certificates.p12 | pbcopy
    ```
-7. The base64 string is now in your clipboard - paste it as the secret value
+8. The base64 string is now in your clipboard - paste it as the secret value
 
-**Note:** If you don't have a distribution certificate:
+**Note:** If you don't have these certificates:
 - Go to https://developer.apple.com/account/resources/certificates
-- Click **+** to create a new certificate
-- Select **Apple Distribution** under "Software"
-- Follow the prompts to create and download the certificate
-- Double-click the downloaded .cer file to install it in Keychain Access
-- Then follow the export steps above
+- Click **+** to create new certificates
+- Create **Apple Distribution** (under "Software")
+- Create **Mac Installer Distribution** (under "Software")
+- Download and double-click each .cer file to install in Keychain Access
+- Then follow the export steps above to export both together
 
 ---
 
@@ -165,9 +167,9 @@ openssl rand -base64 32 | pbcopy
 
 ## Quick Checklist
 
-- [ ] `BUILD_CERTIFICATE_BASE64` - Distribution cert from Keychain Access
-- [ ] `P12_PASSWORD` - Password you used when exporting the cert
-- [ ] `BUILD_PROVISION_PROFILE_BASE64` - App Store provisioning profile
+- [ ] `BUILD_CERTIFICATE_BASE64` - Both certs from Keychain (Apple Distribution + Mac Installer Distribution)
+- [ ] `P12_PASSWORD` - Password you used when exporting the certs
+- [ ] `BUILD_PROVISION_PROFILE_BASE64` - Mac App Store provisioning profile
 - [ ] `KEYCHAIN_PASSWORD` - Random password for CI keychain
 - [ ] `EXPORT_OPTIONS_PLIST` - Export options with your provisioning profile name
 - [ ] `APP_STORE_CONNECT_API_KEY_ID` - Key ID from App Store Connect API
@@ -187,9 +189,12 @@ openssl rand -base64 32 | pbcopy
 
 ## Common Issues
 
-**"No signing certificate"**
-- Ensure your Distribution certificate is valid and not expired
-- Check that the certificate matches your Team ID (2HG25473GL)
+**"No signing certificate" or "No signing certificate 'Mac Installer Distribution' found"**
+- Ensure BOTH certificates are exported together in the .p12 file:
+  - Apple Distribution (for code signing)
+  - Mac Installer Distribution (for creating .pkg)
+- Check that both certificates are valid and not expired
+- Verify certificates match your Team ID (2HG25473GL)
 - Verify the P12_PASSWORD is correct
 
 **"No provisioning profile found"**
