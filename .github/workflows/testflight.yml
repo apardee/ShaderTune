@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_26.1.app/Contents/Developer
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
 
       - name: Show Xcode version
         run: xcodebuild -version
@@ -96,98 +96,6 @@ jobs:
         run: |
           xcodebuild clean -project ShaderTune.xcodeproj -scheme ShaderTune -sdk macosx
 
-      - name: Convert .icon bundle to .appiconset for CI build
-        run: |
-          # Use iconutil to convert the .icon bundle to iconset (intermediate format)
-          iconutil --convert iconset --output /tmp/ShaderTune.iconset ShaderTune/ShaderTune.icon
-
-          # Create AppIcon.appiconset structure
-          mkdir -p ShaderTune/Assets.xcassets/AppIcon.appiconset
-
-          # Map iconset files to appiconset structure for macOS
-          # Copy all generated icon files to the appiconset
-          if [ -d "/tmp/ShaderTune.iconset" ]; then
-            cp /tmp/ShaderTune.iconset/*.png ShaderTune/Assets.xcassets/AppIcon.appiconset/ 2>/dev/null || true
-          fi
-
-          # Create Contents.json for macOS app icon
-          cat > ShaderTune/Assets.xcassets/AppIcon.appiconset/Contents.json << 'EOF'
-          {
-            "images" : [
-              {
-                "filename" : "icon_16x16.png",
-                "idiom" : "mac",
-                "scale" : "1x",
-                "size" : "16x16"
-              },
-              {
-                "filename" : "icon_16x16@2x.png",
-                "idiom" : "mac",
-                "scale" : "2x",
-                "size" : "16x16"
-              },
-              {
-                "filename" : "icon_32x32.png",
-                "idiom" : "mac",
-                "scale" : "1x",
-                "size" : "32x32"
-              },
-              {
-                "filename" : "icon_32x32@2x.png",
-                "idiom" : "mac",
-                "scale" : "2x",
-                "size" : "32x32"
-              },
-              {
-                "filename" : "icon_128x128.png",
-                "idiom" : "mac",
-                "scale" : "1x",
-                "size" : "128x128"
-              },
-              {
-                "filename" : "icon_128x128@2x.png",
-                "idiom" : "mac",
-                "scale" : "2x",
-                "size" : "128x128"
-              },
-              {
-                "filename" : "icon_256x256.png",
-                "idiom" : "mac",
-                "scale" : "1x",
-                "size" : "256x256"
-              },
-              {
-                "filename" : "icon_256x256@2x.png",
-                "idiom" : "mac",
-                "scale" : "2x",
-                "size" : "256x256"
-              },
-              {
-                "filename" : "icon_512x512.png",
-                "idiom" : "mac",
-                "scale" : "1x",
-                "size" : "512x512"
-              },
-              {
-                "filename" : "icon_512x512@2x.png",
-                "idiom" : "mac",
-                "scale" : "2x",
-                "size" : "512x512"
-              }
-            ],
-            "info" : {
-              "author" : "xcode",
-              "version" : 1
-            }
-          }
-          EOF
-
-          echo "Generated icon files:"
-          ls -la ShaderTune/Assets.xcassets/AppIcon.appiconset/
-
-          # Temporarily rename the .icon bundle to prevent actool from trying to process it
-          mv ShaderTune/ShaderTune.icon /tmp/ShaderTune.icon.backup
-
       - name: Build and Archive
         run: |
           xcodebuild -project ShaderTune.xcodeproj \
@@ -200,7 +108,6 @@ jobs:
             DEVELOPMENT_TEAM=2HG25473GL \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             ONLY_ACTIVE_ARCH=NO \
-            ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon \
             -allowProvisioningUpdates \
             archive
 
@@ -223,19 +130,6 @@ jobs:
           ls -la $RUNNER_TEMP/ShaderTune.xcarchive/Products/
           echo "Archive Info.plist:"
           cat $RUNNER_TEMP/ShaderTune.xcarchive/Info.plist
-
-          # Find and verify the app icon
-          APP_PATH=$(find $RUNNER_TEMP/ShaderTune.xcarchive/Products -name "*.app" -type d | head -n 1)
-          echo "Checking for app icon in: $APP_PATH"
-          ls -la "$APP_PATH/Contents/Resources/" | grep -i icon || echo "No icon files found"
-
-          # Check if AppIcon.icns exists
-          if [ -f "$APP_PATH/Contents/Resources/AppIcon.icns" ]; then
-            echo "AppIcon.icns found!"
-            file "$APP_PATH/Contents/Resources/AppIcon.icns"
-          else
-            echo "WARNING: AppIcon.icns not found in app bundle!"
-          fi
 
       - name: Export PKG
         timeout-minutes: 10
@@ -300,15 +194,6 @@ jobs:
           else
             echo "Upload to TestFlight succeeded!"
           fi
-
-      - name: Restore icon bundle and clean up
-        if: always()
-        run: |
-          # Restore the original .icon bundle
-          mv /tmp/ShaderTune.icon.backup ShaderTune/ShaderTune.icon || true
-
-          # Remove the temporary AppIcon.appiconset
-          rm -rf ShaderTune/Assets.xcassets/AppIcon.appiconset || true
 
       - name: Clean up keychain and provisioning profile
         if: always()
