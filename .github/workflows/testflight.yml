@@ -73,6 +73,9 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -archivePath $RUNNER_TEMP/ShaderTune.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=2HG25473GL \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive
 
       - name: Export PKG
