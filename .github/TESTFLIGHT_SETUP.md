@@ -23,11 +23,19 @@ You need to configure the following secrets in your GitHub repository:
 4. Right-click and select **Export 2 items...**
 5. Choose **File Format: Personal Information Exchange (.p12)**
 6. Save it with a password (you'll need this for P12_PASSWORD)
-7. Convert to base64:
+7. **IMPORTANT - Verify both certificates are in the .p12 file:**
+   ```bash
+   security import Certificates.p12 -k ~/Library/Keychains/login.keychain-db -P YOUR_P12_PASSWORD -T /usr/bin/codesign
+   ```
+   This will import the certificates and you should see output confirming BOTH certificates were imported.
+
+8. Convert to base64:
    ```bash
    base64 -i Certificates.p12 | pbcopy
    ```
-8. The base64 string is now in your clipboard - paste it as the secret value
+9. The base64 string is now in your clipboard - paste it as the secret value
+
+**CRITICAL:** You MUST export BOTH certificates together. If you only have one certificate or forget to select both, the build will fail with "No signing certificate 'Mac Installer Distribution' found".
 
 **Note:** If you don't have these certificates:
 - Go to https://developer.apple.com/account/resources/certificates
@@ -190,12 +198,14 @@ openssl rand -base64 32 | pbcopy
 ## Common Issues
 
 **"No signing certificate" or "No signing certificate 'Mac Installer Distribution' found"**
-- Ensure BOTH certificates are exported together in the .p12 file:
-  - Apple Distribution (for code signing)
-  - Mac Installer Distribution (for creating .pkg)
-- Check that both certificates are valid and not expired
+This is the most common error. To fix:
+- **Most likely cause:** You only exported ONE certificate instead of BOTH. You MUST export Apple Distribution AND Mac Installer Distribution together in the same .p12 file
+- In Keychain Access, verify you selected BOTH certificates (Cmd+Click to multi-select) before exporting
+- When exporting, the dialog should say "Export 2 items..." not "Export 1 item..."
+- Check that both certificates are valid and not expired in Keychain Access
 - Verify certificates match your Team ID (2HG25473GL)
 - Verify the P12_PASSWORD is correct
+- Check the workflow logs for "Certificates in keychain:" - it should list BOTH certificates
 
 **"No provisioning profile found"**
 - Ensure the provisioning profile's Bundle ID matches `me.apardee.ShaderTune`
