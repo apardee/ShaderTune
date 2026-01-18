@@ -22,21 +22,13 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
 
-      - name: Show Xcode version
-        run: xcodebuild -version
-
       - name: Increment Build Number
         run: |
           # Set build number to GitHub run number for uniqueness
           agvtool new-version -all ${{ github.run_number }}
 
-          # Show the new build number
-          echo "Build number set to: ${{ github.run_number }}"
-          agvtool what-version
-
           # Get version number from build settings
           VERSION=$(xcodebuild -project ShaderTune.xcodeproj -showBuildSettings | grep MARKETING_VERSION | awk '{print $3}' | head -1)
-          echo "Extracted version: $VERSION"
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Install Apple Certificate and Provisioning Profile
@@ -55,23 +47,13 @@ jobs:
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
           echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
-          # Verify the p12 file was decoded correctly
-          echo "Verifying p12 file size:"
-          ls -lh $CERTIFICATE_PATH
-
           # Create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # Import certificate to keychain with error checking
-          echo "Importing certificates to keychain..."
-          if security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild -T /usr/bin/pkgbuild -A -k $KEYCHAIN_PATH; then
-            echo "Certificate import succeeded"
-          else
-            echo "Certificate import failed with exit code $?"
-            exit 1
-          fi
+          # Import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild -T /usr/bin/pkgbuild -A -k $KEYCHAIN_PATH
 
           # Allow all applications to access the private keys
           security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild:,pkgbuild: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -79,18 +61,6 @@ jobs:
           # Add to search list and set as default
           security list-keychain -d user -s $KEYCHAIN_PATH login.keychain
           security default-keychain -s $KEYCHAIN_PATH
-
-          # Verify certificates were imported
-          echo "All identities in keychain:"
-          security find-identity -v $KEYCHAIN_PATH
-
-          echo ""
-          echo "Code signing identities:"
-          security find-identity -v -p codesigning $KEYCHAIN_PATH
-
-          echo ""
-          echo "All certificates in keychain:"
-          security find-certificate -a -p $KEYCHAIN_PATH | grep -c "BEGIN CERTIFICATE" || echo "0 certificates"
 
           # Apply provisioning profile for macOS
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
@@ -118,26 +88,6 @@ jobs:
             ONLY_ACTIVE_ARCH=NO \
             -allowProvisioningUpdates \
             archive
-
-      - name: Unlock keychain for export
-        env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # Verify both certificates are available
-          echo "Available signing identities:"
-          security find-identity -v -p codesigning $KEYCHAIN_PATH
-          security find-identity -v -p basic $KEYCHAIN_PATH
-
-      - name: Verify Archive
-        run: |
-          echo "Archive contents:"
-          ls -la $RUNNER_TEMP/ShaderTune.xcarchive/
-          ls -la $RUNNER_TEMP/ShaderTune.xcarchive/Products/
-          echo "Archive Info.plist:"
-          cat $RUNNER_TEMP/ShaderTune.xcarchive/Info.plist
 
       - name: Export PKG
         timeout-minutes: 10
