@@ -11,6 +11,9 @@ on:
 jobs:
   build-and-upload:
     runs-on: macos-26
+    permissions:
+      contents: read
+      statuses: write
 
     steps:
       - name: Checkout code
