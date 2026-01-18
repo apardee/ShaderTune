@@ -35,7 +35,7 @@ jobs:
           agvtool what-version
 
           # Get version number and export for later steps
-          VERSION=$(agvtool what-marketing-version | grep -o '\d\+\.\d\+\.\d\+' | head -1)
+          VERSION=$(agvtool what-marketing-version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           echo "App version: $VERSION"
 
@@ -213,7 +213,7 @@ jobs:
             -d '{
               "state": "success",
               "context": "TestFlight Build",
-              "description": "Build ${{ env.APP_VERSION }} (${{ github.run_number }}) uploaded",
+              "description": "TestFlight Build: ${{ env.APP_VERSION }} (${{ github.run_number }})",
               "target_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }'
 
