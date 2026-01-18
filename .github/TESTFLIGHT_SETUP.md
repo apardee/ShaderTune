@@ -12,38 +12,44 @@ You need to configure the following secrets in your GitHub repository:
 **Settings > Secrets and variables > Actions > New repository secret**
 
 ### 1. BUILD_CERTIFICATE_BASE64
-**What it is:** Your Apple Distribution AND Mac Installer Distribution certificates exported together as a .p12 file, then base64 encoded.
+**What it is:** Your Mac App Distribution AND Mac Installer Distribution certificates exported together as a .p12 file, then base64 encoded.
+
+**IMPORTANT - Certificate Naming Confusion:**
+Apple's certificate names differ between the Developer Portal and Keychain Access:
+- Portal: "Mac App Distribution" → Keychain: "Apple Distribution" OR "3rd Party Mac Developer Application"
+- Portal: "Mac Installer Distribution" → Keychain: "3rd Party Mac Developer Installer"
 
 **How to get it:**
-1. Open **Keychain Access** on your Mac
-2. Find BOTH certificates under "My Certificates":
-   - **Apple Distribution: [Your Name] ([Team ID])**
-   - **Mac Installer Distribution: [Your Name] ([Team ID])**
-3. Select both certificates (hold Cmd and click each one)
-4. Right-click and select **Export 2 items...**
-5. Choose **File Format: Personal Information Exchange (.p12)**
-6. Save it with a password (you'll need this for P12_PASSWORD)
-7. **IMPORTANT - Verify both certificates are in the .p12 file:**
+1. **Create the certificates in Apple Developer Portal** (if you don't have them):
+   - Go to https://developer.apple.com/account/resources/certificates
+   - Click **+** to create new certificates (under "Software" section):
+     1. **Mac App Distribution** - for code signing your app
+     2. **Mac Installer Distribution** - for signing the .pkg installer
+   - Download and double-click each .cer file to install in Keychain Access
+
+2. **Export both certificates from Keychain Access:**
+   - Open **Keychain Access** on your Mac
+   - Look for these certificates under "My Certificates":
+     - **Apple Distribution: [Your Name] ([Team ID])** OR **3rd Party Mac Developer Application: [Your Name] ([Team ID])**
+     - **3rd Party Mac Developer Installer: [Your Name] ([Team ID])**
+   - Select BOTH certificates (hold Cmd and click each one)
+   - Right-click and select **"Export 2 items..."** (must say "2 items")
+   - Choose **File Format: Personal Information Exchange (.p12)**
+   - Save it with a password (you'll need this for P12_PASSWORD)
+
+3. **Verify both certificates are in the .p12 file:**
    ```bash
-   security import Certificates.p12 -k ~/Library/Keychains/login.keychain-db -P YOUR_P12_PASSWORD -T /usr/bin/codesign
+   openssl pkcs12 -in Certificates.p12 -nodes -legacy | grep -c "BEGIN CERTIFICATE"
    ```
-   This will import the certificates and you should see output confirming BOTH certificates were imported.
+   This should return **2**. If it returns 1, you only exported one certificate - go back and export both together.
 
-8. Convert to base64:
+4. **Convert to base64:**
    ```bash
-   base64 -i Certificates.p12 | pbcopy
+   base64 -i Certificates.p12 | tr -d '\n' | pbcopy
    ```
-9. The base64 string is now in your clipboard - paste it as the secret value
+   The base64 string is now in your clipboard - paste it as the secret value.
 
-**CRITICAL:** You MUST export BOTH certificates together. If you only have one certificate or forget to select both, the build will fail with "No signing certificate 'Mac Installer Distribution' found".
-
-**Note:** If you don't have these certificates:
-- Go to https://developer.apple.com/account/resources/certificates
-- Click **+** to create new certificates
-- Create **Apple Distribution** (under "Software")
-- Create **Mac Installer Distribution** (under "Software")
-- Download and double-click each .cer file to install in Keychain Access
-- Then follow the export steps above to export both together
+**CRITICAL:** You MUST export BOTH certificates together. The build will fail with "No signing certificate" errors if either is missing.
 
 ---
 
@@ -101,13 +107,17 @@ openssl rand -base64 32 | pbcopy
    <plist version="1.0">
    <dict>
        <key>method</key>
-       <string>app-store</string>
+       <string>app-store-connect</string>
        <key>teamID</key>
        <string>2HG25473GL</string>
        <key>uploadSymbols</key>
        <true/>
        <key>signingStyle</key>
        <string>manual</string>
+       <key>signingCertificate</key>
+       <string>Apple Distribution</string>
+       <key>installerSigningCertificate</key>
+       <string>3rd Party Mac Developer Installer</string>
        <key>provisioningProfiles</key>
        <dict>
            <key>me.apardee.ShaderTune</key>
@@ -116,9 +126,9 @@ openssl rand -base64 32 | pbcopy
    </dict>
    </plist>
    ```
-2. Replace `YOUR_PROVISIONING_PROFILE_NAME` with the name of your Mac provisioning profile
+2. Replace `YOUR_PROVISIONING_PROFILE_NAME` with the name of your Mac App Store provisioning profile
    - Find it at https://developer.apple.com/account/resources/profiles
-   - Look for the "Name" column (e.g., "ShaderTune Mac App Store")
+   - Look for the "Name" column (e.g., "ShaderTuneMacProvisioning")
 3. Convert to base64:
    ```bash
    base64 -i ExportOptions.plist | pbcopy
