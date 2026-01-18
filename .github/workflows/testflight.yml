@@ -35,9 +35,12 @@ jobs:
           agvtool what-version
 
           # Get version number and export for later steps
-          VERSION=$(agvtool what-marketing-version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          echo "Debug: agvtool output:"
+          agvtool what-marketing-version
+
+          VERSION=$(agvtool what-marketing-version | grep -Eo '[0-9]+(\.[0-9]+)*' | head -1)
+          echo "Extracted version: $VERSION"
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "App version: $VERSION"
 
       - name: Install Apple Certificate and Provisioning Profile
         env:
