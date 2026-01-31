@@ -1,0 +1,10 @@
+name: "Test Multi-Pass Shader"
+main:
+  file: "image.metal"
+  inputs:
+    - buffer: "BufferA"
+      binding: 0
+buffers:
+  - name: "BufferA"
+    file: "buffer_a.metal"
+    feedback: true

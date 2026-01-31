@@ -13,5 +13,8 @@ struct ShaderTuneApp: App {
         WindowGroup {
             ContentView()
         }
+        .commands {
+            FileMenuCommands()
+        }
     }
 }

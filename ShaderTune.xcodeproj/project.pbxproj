@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		923F490B2F05B96900E1D069 /* CodeEditorView in Frameworks */ = {isa = PBXBuildFile; productRef = 923F49012F05B20000E1D069 /* CodeEditorView */; };
+		923F49102F05BA0000E1D069 /* Yams in Frameworks */ = {isa = PBXBuildFile; productRef = 923F490F2F05BA0000E1D069 /* Yams */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				923F490B2F05B96900E1D069 /* CodeEditorView in Frameworks */,
+				923F49102F05BA0000E1D069 /* Yams in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +73,7 @@
 			name = ShaderTune;
 			packageProductDependencies = (
 				923F49012F05B20000E1D069 /* CodeEditorView */,
+				923F490F2F05BA0000E1D069 /* Yams */,
 			);
 			productName = ShaderTune;
 			productReference = 923F48F12F05B0F500E1D069 /* ShaderTune.app */;
@@ -102,6 +105,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditorView" */,
+				923F490E2F05BA0000E1D069 /* XCRemoteSwiftPackageReference "Yams" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 923F48F22F05B0F500E1D069 /* Products */;
@@ -376,6 +380,14 @@
 				kind = branch;
 			};
 		};
+		923F490E2F05BA0000E1D069 /* XCRemoteSwiftPackageReference "Yams" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jpsim/Yams.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -383,6 +395,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 923F49002F05B20000E1D069 /* XCRemoteSwiftPackageReference "CodeEditorView" */;
 			productName = CodeEditorView;
+		};
+		923F490F2F05BA0000E1D069 /* Yams */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 923F490E2F05BA0000E1D069 /* XCRemoteSwiftPackageReference "Yams" */;
+			productName = Yams;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

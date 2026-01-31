@@ -5,22 +5,26 @@
 //  Created by Anthony Pardee on 12/31/25.
 //
 
+import Metal
 import SwiftUI
 
 #if os(macOS)
 import AppKit
+import UniformTypeIdentifiers
 #endif
 
 enum FileError: LocalizedError {
     case loadFailed(String)
     case saveFailed(String)
     case scanFailed(String)
+    case projectError(String)
 
     var errorDescription: String? {
         switch self {
         case .loadFailed(let path): return "Failed to load file: \(path)"
         case .saveFailed(let path): return "Failed to save file: \(path)"
         case .scanFailed(let path): return "Failed to scan directory: \(path)"
+        case .projectError(let message): return "Project error: \(message)"
         }
     }
 }
@@ -48,6 +52,15 @@ struct ContentView: View {
     @State private var isFileDirty: Bool = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
+    // Project mode state
+    @State private var currentProject: ShaderProject?
+    @State private var selectedPass: ShaderPass?
+    @State private var workspaceProjects: [ShaderProject] = []
+    @State private var passLibraries: [String: MTLLibrary] = [:]
+
+    // New file sheet
+    @State private var showingNewFileSheet: Bool = false
+
     // Error handling
     @State private var fileError: FileError?
     @State private var showingFileError: Bool = false
@@ -59,19 +72,27 @@ struct ContentView: View {
         self.compiler = compiler
     }
 
+    /// Returns diagnostics for the currently selected pass, or global diagnostics
+    private var currentDiagnostics: [CompilationDiagnostic] {
+        if let pass = selectedPass {
+            return compiler.diagnostics(for: pass.name)
+        }
+        return compiler.diagnostics
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            // Sidebar: File Navigator
+            // Sidebar: File Navigator (or Project Navigator)
             FileNavigatorView(
                 selectedDirectoryURL: $selectedDirectoryURL,
                 fileTree: $fileTree,
                 selectedFileURL: $selectedFileURL,
-                onSelectFolder: {
-                    #if os(macOS)
-                    selectFolder()
-                    #endif
-                },
-                onSelectFile: handleFileSelection
+                onSelectFile: handleFileSelection,
+                currentProject: $currentProject,
+                selectedPass: $selectedPass,
+                workspaceProjects: $workspaceProjects,
+                passDiagnostics: compiler.passDiagnostics,
+                onSelectPass: handlePassSelection
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } content: {
@@ -85,7 +106,16 @@ struct ContentView: View {
                             .help("Unsaved changes")
                     }
 
-                    if let filename = selectedFileURL?.lastPathComponent {
+                    // Show project/pass info or filename
+                    if let project = currentProject, let pass = selectedPass {
+                        HStack(spacing: 4) {
+                            Image(systemName: pass.isMain ? "display" : "square.stack")
+                                .foregroundColor(.accentColor)
+                            Text("\(project.name) / \(pass.name)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    } else if let filename = selectedFileURL?.lastPathComponent {
                         Text(filename)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -133,7 +163,7 @@ struct ContentView: View {
                 }
 
                 // Editor with inline error display
-                if selectedFileURL == nil && shaderSource.isEmpty {
+                if selectedFileURL == nil && shaderSource.isEmpty && currentProject == nil {
                     // Empty state when no file is selected
                     VStack(spacing: 20) {
                         Spacer()
@@ -175,7 +205,7 @@ struct ContentView: View {
                         // Editor with native inline errors
                         ShaderEditorViewWrapper(
                             source: $shaderSource,
-                            diagnostics: compiler.diagnostics
+                            diagnostics: currentDiagnostics
                         )
 
                         // Completion popup
@@ -198,9 +228,28 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 300, ideal: 500)
         } detail: {
             // Detail: Renderer preview
-            if selectedFileURL != nil && compiler.compiledLibrary != nil {
+            if currentProject != nil && !passLibraries.isEmpty {
+                // Multi-pass project mode
                 RendererView(
-                    mousePosition: $mousePosition, compiledLibrary: $compiler.compiledLibrary
+                    mousePosition: $mousePosition,
+                    compiledLibrary: $compiler.compiledLibrary,
+                    project: $currentProject,
+                    passLibraries: $passLibraries
+                )
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        mousePosition = location
+                    case .ended:
+                        break
+                    }
+                }
+                .navigationSplitViewColumnWidth(min: 200, ideal: 400)
+            } else if selectedFileURL != nil && compiler.compiledLibrary != nil {
+                // Single file mode
+                RendererView(
+                    mousePosition: $mousePosition,
+                    compiledLibrary: $compiler.compiledLibrary
                 )
                 .onContinuousHover { phase in
                     switch phase {
@@ -225,7 +274,7 @@ struct ContentView: View {
                             .font(.title2)
                             .fontWeight(.semibold)
 
-                        if selectedFileURL == nil {
+                        if selectedFileURL == nil && currentProject == nil {
                             Text("Select a shader file to see the rendered output")
                                 .font(.body)
                                 .foregroundColor(.secondary)
@@ -270,10 +319,22 @@ struct ContentView: View {
         }
         .onKeyPress("o", phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
-                selectFolder()
+                openFile()
                 return .handled
             }
             return .ignored
+        }
+        .onKeyPress("n", phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                newFile()
+                return .handled
+            }
+            return .ignored
+        }
+        .focusedSceneValue(\.newFileAction) { newFile() }
+        .focusedSceneValue(\.openFileAction) { openFile() }
+        .sheet(isPresented: $showingNewFileSheet) {
+            NewProjectSheet(onCreate: createNewProject)
         }
         #endif
         .alert("File Error", isPresented: $showingFileError, presenting: fileError) { error in
@@ -322,7 +383,7 @@ struct ContentView: View {
             // Check if task was cancelled during sleep
             if !Task.isCancelled {
                 await MainActor.run {
-                    compiler.compile(source: source)
+                    compileCurrentSource(source)
                 }
             }
         }
@@ -331,7 +392,19 @@ struct ContentView: View {
     private func compileNow() {
         // Cancel any pending debounced compilation
         debounceTask?.cancel()
-        compiler.compile(source: shaderSource)
+        compileCurrentSource(shaderSource)
+    }
+
+    private func compileCurrentSource(_ source: String) {
+        if currentProject != nil, let pass = selectedPass {
+            // Project mode - compile only the current pass
+            if let library = compiler.compilePass(source: source, passName: pass.name) {
+                passLibraries[pass.name] = library
+            }
+        } else {
+            // Single file mode
+            compiler.compile(source: source)
+        }
     }
 
     // MARK: - Find/Replace
@@ -386,31 +459,55 @@ struct ContentView: View {
 
     // MARK: - File Operations
 
-    #if os(macOS)
-    private func selectFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a folder containing Metal shader files"
-
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-
-            selectedDirectoryURL = url
-            scanDirectory(url)
-        }
-    }
-    #endif
-
     private func scanDirectory(_ url: URL) {
-        do {
-            let builder = FileTreeBuilder()
-            fileTree = try builder.buildTree(from: url)
-        } catch {
-            fileError = .scanFailed(url.path)
-            showingFileError = true
+        // Reset project state
+        currentProject = nil
+        workspaceProjects = []
+        selectedPass = nil
+        passLibraries = [:]
+        compiler.clearPassState()
+
+        // Analyze the directory type
+        let directoryType = WorkspaceService.analyzeDirectory(url)
+
+        switch directoryType {
+        case .project(let project):
+            // Single project mode
+            currentProject = project
             fileTree = []
+
+            // Compile all passes
+            passLibraries = compiler.compileProject(project)
+
+            // Select the main pass by default
+            selectedPass = project.mainPass
+            let fileURL = project.fileURL(for: project.mainPass)
+            loadFile(fileURL)
+
+        case .workspace(let projects):
+            // Workspace mode - multiple projects
+            workspaceProjects = projects
+            fileTree = []
+
+            // Select first project by default
+            if let firstProject = projects.first {
+                currentProject = firstProject
+                passLibraries = compiler.compileProject(firstProject)
+                selectedPass = firstProject.mainPass
+                let fileURL = firstProject.fileURL(for: firstProject.mainPass)
+                loadFile(fileURL)
+            }
+
+        case .looseFiles:
+            // Loose files mode - build file tree
+            do {
+                let builder = FileTreeBuilder()
+                fileTree = try builder.buildTree(from: url)
+            } catch {
+                fileError = .scanFailed(url.path)
+                showingFileError = true
+                fileTree = []
+            }
         }
     }
 
@@ -457,6 +554,86 @@ struct ContentView: View {
         guard url != selectedFileURL else { return }
 
         loadFile(url)
+    }
+
+    private func handlePassSelection(_ pass: ShaderPass) {
+        guard let project = currentProject else { return }
+
+        // Save current file if dirty
+        if isFileDirty, let currentURL = selectedFileURL {
+            saveFile(currentURL)
+        }
+
+        // Load the pass's shader file
+        let fileURL = project.fileURL(for: pass)
+        loadFile(fileURL)
+        selectedPass = pass
+    }
+
+    // MARK: - New/Open File Actions
+
+    #if os(macOS)
+    private func newFile() {
+        // Always show the new project sheet - it will handle folder selection
+        showingNewFileSheet = true
+    }
+
+    private func openFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [
+            .folder,
+            .init(filenameExtension: "yaml")!,
+            .init(filenameExtension: "yml")!,
+        ]
+        panel.message = "Select a shader project folder or project.yaml file"
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+
+            var directoryURL: URL
+
+            // Determine the project directory
+            if url.hasDirectoryPath {
+                // User selected a directory
+                directoryURL = url
+            } else if url.pathExtension == "yaml" || url.pathExtension == "yml" {
+                // User selected a project.yaml file - use its parent directory
+                directoryURL = url.deletingLastPathComponent()
+            } else {
+                // Fallback - treat as directory
+                directoryURL = url
+            }
+
+            selectedDirectoryURL = directoryURL
+            scanDirectory(directoryURL)
+        }
+    }
+    #endif
+
+    private func createNewProject(at projectURL: URL, named projectName: String) {
+        do {
+            let project = try ProjectConfigService.createProject(name: projectName, at: projectURL)
+
+            // Set as current directory and project
+            selectedDirectoryURL = projectURL
+            currentProject = project
+            workspaceProjects = []
+            fileTree = []
+
+            // Compile all passes
+            passLibraries = compiler.compileProject(project)
+
+            // Select the main pass
+            selectedPass = project.mainPass
+            let fileURL = project.fileURL(for: project.mainPass)
+            loadFile(fileURL)
+        } catch {
+            fileError = .projectError(error.localizedDescription)
+            showingFileError = true
+        }
     }
 }
 

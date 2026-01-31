@@ -12,68 +12,111 @@ struct FileNavigatorView: View {
     @Binding var fileTree: [FileNode]
     @Binding var selectedFileURL: URL?
 
-    let onSelectFolder: () -> Void
     let onSelectFile: (URL) -> Void
+
+    // Project mode support
+    @Binding var currentProject: ShaderProject?
+    @Binding var selectedPass: ShaderPass?
+    @Binding var workspaceProjects: [ShaderProject]
+    let passDiagnostics: [String: [CompilationDiagnostic]]
+    let onSelectPass: (ShaderPass) -> Void
 
     @State private var isRootExpanded: Bool = true
 
+    init(
+        selectedDirectoryURL: Binding<URL?>,
+        fileTree: Binding<[FileNode]>,
+        selectedFileURL: Binding<URL?>,
+        onSelectFile: @escaping (URL) -> Void,
+        currentProject: Binding<ShaderProject?> = .constant(nil),
+        selectedPass: Binding<ShaderPass?> = .constant(nil),
+        workspaceProjects: Binding<[ShaderProject]> = .constant([]),
+        passDiagnostics: [String: [CompilationDiagnostic]] = [:],
+        onSelectPass: @escaping (ShaderPass) -> Void = { _ in }
+    ) {
+        self._selectedDirectoryURL = selectedDirectoryURL
+        self._fileTree = fileTree
+        self._selectedFileURL = selectedFileURL
+        self.onSelectFile = onSelectFile
+        self._currentProject = currentProject
+        self._selectedPass = selectedPass
+        self._workspaceProjects = workspaceProjects
+        self.passDiagnostics = passDiagnostics
+        self.onSelectPass = onSelectPass
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Header with folder picker
-            HStack {
-                Spacer()
-                Button(action: onSelectFolder) {
-                    Image(systemName: "folder.badge.plus")
-                }
-                .buttonStyle(.borderless)
-                .help("Select Folder (Cmd+O)")
-            }
-            .padding()
-            #if os(macOS)
-            .background(Color(nsColor: .controlBackgroundColor))
-            #else
-            .background(Color(.systemBackground))
-            #endif
-
-            Divider()
-
-            // File tree
             if selectedDirectoryURL == nil {
-                VStack(spacing: 12) {
-                    Image(systemName: "folder.badge.questionmark")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("No folder selected")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Button("Select Folder") {
-                        onSelectFolder()
+                // No folder selected
+                emptyStateView
+            } else if let project = currentProject {
+                // Project mode - show passes
+                ProjectNavigatorView(
+                    project: project,
+                    selectedPass: $selectedPass,
+                    passDiagnostics: passDiagnostics
+                )
+                .onChange(of: selectedPass) { _, newPass in
+                    if let pass = newPass {
+                        onSelectPass(pass)
                     }
-                    .buttonStyle(.bordered)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !workspaceProjects.isEmpty {
+                // Workspace mode - show multiple projects
+                WorkspaceNavigatorView(
+                    projects: workspaceProjects,
+                    selectedProject: $currentProject,
+                    selectedPass: $selectedPass,
+                    passDiagnostics: passDiagnostics
+                )
+                .onChange(of: selectedPass) { _, newPass in
+                    if let pass = newPass {
+                        onSelectPass(pass)
+                    }
+                }
             } else {
-                List(selection: $selectedFileURL) {
-                    DisclosureGroup(isExpanded: $isRootExpanded) {
-                        ForEach(fileTree, id: \.id) { node in
-                            FileNodeView(
-                                node: node,
-                                selectedFileURL: $selectedFileURL,
-                                onSelectFile: onSelectFile
-                            )
-                        }
-                    } label: {
-                        Label(
-                            selectedDirectoryURL?.lastPathComponent ?? "Project",
-                            systemImage: "folder.fill"
-                        )
-                        .font(.headline)
-                        .foregroundColor(.accentColor)
-                    }
-                }
-                .listStyle(.sidebar)
+                // Loose files mode - show file tree
+                fileTreeView
             }
         }
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "folder.badge.questionmark")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            Text("No folder selected")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text("Use File → Open (Cmd+O)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var fileTreeView: some View {
+        List(selection: $selectedFileURL) {
+            DisclosureGroup(isExpanded: $isRootExpanded) {
+                ForEach(fileTree, id: \.id) { node in
+                    FileNodeView(
+                        node: node,
+                        selectedFileURL: $selectedFileURL,
+                        onSelectFile: onSelectFile
+                    )
+                }
+            } label: {
+                Label(
+                    selectedDirectoryURL?.lastPathComponent ?? "Project",
+                    systemImage: "folder.fill"
+                )
+                .font(.headline)
+                .foregroundColor(.accentColor)
+            }
+        }
+        .listStyle(.sidebar)
     }
 }
 
