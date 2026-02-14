@@ -59,7 +59,13 @@ struct ShaderPass: Identifiable, Equatable, Hashable {
 
 /// Represents a shader project with multi-pass rendering support
 struct ShaderProject: Identifiable, Equatable {
+    /// Current project format version
+    static let currentVersion = "0.1.0"
+
     let id: UUID
+
+    /// Project format version
+    let version: String
 
     /// Project name
     let name: String
@@ -68,23 +74,49 @@ struct ShaderProject: Identifiable, Equatable {
     let mainPass: ShaderPass
 
     /// Buffer passes (render to textures)
-    let buffers: [ShaderPass]
+    var buffers: [ShaderPass]
 
     /// URL to the project directory
     let projectURL: URL
 
     init(
         id: UUID = UUID(),
+        version: String = ShaderProject.currentVersion,
         name: String,
         mainPass: ShaderPass,
         buffers: [ShaderPass],
         projectURL: URL
     ) {
         self.id = id
+        self.version = version
         self.name = name
         self.mainPass = mainPass
         self.buffers = buffers
         self.projectURL = projectURL
+    }
+
+    /// Returns a new project with reordered buffers
+    func withReorderedBuffers(_ newBuffers: [ShaderPass]) -> ShaderProject {
+        ShaderProject(
+            id: id,
+            version: version,
+            name: name,
+            mainPass: mainPass,
+            buffers: newBuffers,
+            projectURL: projectURL
+        )
+    }
+
+    /// Returns a new project with an additional buffer
+    func withBuffer(_ buffer: ShaderPass) -> ShaderProject {
+        ShaderProject(
+            id: id,
+            version: version,
+            name: name,
+            mainPass: mainPass,
+            buffers: buffers + [buffer],
+            projectURL: projectURL
+        )
     }
 
     /// All passes in the project (buffers + main)
@@ -247,6 +279,7 @@ struct YAMLMainPass: Codable {
 
 /// YAML representation of a project configuration
 struct YAMLProjectConfig: Codable {
+    let version: String?
     let name: String
     let main: YAMLMainPass
     let buffers: [YAMLBufferPass]?

@@ -12,77 +12,84 @@ struct FindReplaceView: View {
     @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
                 // Search field
                 HStack {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppTheme.textSecondary)
                     TextField("Find", text: $searchText)
                         .textFieldStyle(.plain)
+                        .foregroundColor(AppTheme.textPrimary)
                         .focused($searchFieldFocused)
                         .onSubmit {
                             onFind()
                         }
                 }
-                .padding(6)
-                #if os(macOS)
-                .background(Color(nsColor: .textBackgroundColor))
-                #else
-                .background(Color(.systemBackground))
-                #endif
-                .cornerRadius(6)
+                .padding(5)
+                .background(AppTheme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+                        .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
+                )
 
                 Button(action: onFind) {
                     Image(systemName: "arrow.down.circle")
+                        .foregroundColor(AppTheme.textPrimary)
                 }
+                .buttonStyle(.flat)
                 .help("Find Next")
 
                 Button(action: { isVisible = false }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
                 .buttonStyle(.plain)
                 .help("Close")
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 // Replace field
                 HStack {
                     Image(systemName: "arrow.left.arrow.right")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppTheme.textSecondary)
                     TextField("Replace", text: $replaceText)
                         .textFieldStyle(.plain)
+                        .foregroundColor(AppTheme.textPrimary)
                         .onSubmit {
                             onReplace()
                         }
                 }
-                .padding(6)
-                #if os(macOS)
-                .background(Color(nsColor: .textBackgroundColor))
-                #else
-                .background(Color(.systemBackground))
-                #endif
-                .cornerRadius(6)
+                .padding(5)
+                .background(AppTheme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+                        .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
+                )
 
                 Button("Replace") {
                     onReplace()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.flat)
 
                 Button("All") {
                     onReplaceAll()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.flat)
                 .help("Replace All")
             }
         }
-        .padding()
-        #if os(macOS)
-        .background(Color(nsColor: .controlBackgroundColor))
-        #else
-        .background(Color(.secondarySystemBackground))
-        #endif
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppTheme.bgLight)
+        .overlay(
+            Rectangle()
+                .frame(height: AppTheme.borderWidth)
+                .foregroundColor(AppTheme.border),
+            alignment: .top
+        )
         .onAppear {
             searchFieldFocused = true
         }

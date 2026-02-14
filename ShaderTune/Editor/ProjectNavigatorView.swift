@@ -6,15 +6,19 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// View for navigating shader projects with multi-pass support
 struct ProjectNavigatorView: View {
-    let project: ShaderProject
+    @Binding var project: ShaderProject
     @Binding var selectedPass: ShaderPass?
     let passDiagnostics: [String: [CompilationDiagnostic]]
+    let onProjectUpdated: (ShaderProject) -> Void
 
     @State private var isBuffersExpanded: Bool = true
     @State private var isOutputExpanded: Bool = true
+    @State private var showingNewBufferSheet: Bool = false
+    @State private var draggedBuffer: ShaderPass?
 
     var body: some View {
         List(
@@ -29,32 +33,58 @@ struct ProjectNavigatorView: View {
             Section {
                 HStack {
                     Image(systemName: "cube.fill")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(AppTheme.accent)
                     Text(project.name)
                         .font(.headline)
+                        .foregroundColor(AppTheme.textPrimary)
+                    Spacer()
+                    Text(project.version)
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
             }
 
             // Buffers section
-            if !project.buffers.isEmpty {
-                Section {
-                    DisclosureGroup(isExpanded: $isBuffersExpanded) {
-                        ForEach(project.buffers) { buffer in
-                            PassRow(
-                                pass: buffer,
-                                isSelected: selectedPass?.id == buffer.id,
-                                diagnostics: passDiagnostics[buffer.name] ?? []
-                            )
-                            .tag(buffer.id)
-                            .onTapGesture {
-                                selectedPass = buffer
-                            }
+            Section {
+                DisclosureGroup(isExpanded: $isBuffersExpanded) {
+                    ForEach(project.buffers) { buffer in
+                        PassRow(
+                            pass: buffer,
+                            isSelected: selectedPass?.id == buffer.id,
+                            diagnostics: passDiagnostics[buffer.name] ?? []
+                        )
+                        .tag(buffer.id)
+                        .onTapGesture {
+                            selectedPass = buffer
                         }
-                    } label: {
-                        Label("Buffers", systemImage: "square.stack")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        .onDrag {
+                            draggedBuffer = buffer
+                            return NSItemProvider(object: buffer.id.uuidString as NSString)
+                        }
+                        .onDrop(
+                            of: [.text],
+                            delegate: BufferDropDelegate(
+                                buffer: buffer,
+                                buffers: project.buffers,
+                                draggedBuffer: $draggedBuffer,
+                                onReorder: handleBufferReorder
+                            )
+                        )
                     }
+
+                    // Add Buffer button
+                    Button {
+                        showingNewBufferSheet = true
+                    } label: {
+                        Label("Add Buffer", systemImage: "plus.circle")
+                            .foregroundColor(AppTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.vertical, 4)
+                } label: {
+                    Label("Buffers", systemImage: "square.stack")
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
             }
 
@@ -73,11 +103,185 @@ struct ProjectNavigatorView: View {
                 } label: {
                     Label("Output", systemImage: "display")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.bg)
+        .sheet(isPresented: $showingNewBufferSheet) {
+            NewBufferSheet(
+                existingBufferNames: Set(project.buffers.map { $0.name }),
+                onCreate: handleCreateBuffer
+            )
+        }
+    }
+
+    private func handleCreateBuffer(name: String, feedback: Bool) {
+        do {
+            let updatedProject = try ProjectConfigService.addBuffer(
+                to: project,
+                name: name,
+                feedback: feedback
+            )
+            project = updatedProject
+            onProjectUpdated(updatedProject)
+
+            // Select the new buffer
+            if let newBuffer = updatedProject.buffers.last {
+                selectedPass = newBuffer
+            }
+        } catch {
+            print("Failed to create buffer: \(error)")
+        }
+    }
+
+    private func handleBufferReorder(_ newOrder: [ShaderPass]) {
+        do {
+            let updatedProject = try ProjectConfigService.reorderBuffers(
+                in: project,
+                newOrder: newOrder
+            )
+            project = updatedProject
+            onProjectUpdated(updatedProject)
+        } catch {
+            print("Failed to reorder buffers: \(error)")
+        }
+    }
+}
+
+/// Drop delegate for buffer reordering
+struct BufferDropDelegate: DropDelegate {
+    let buffer: ShaderPass
+    let buffers: [ShaderPass]
+    @Binding var draggedBuffer: ShaderPass?
+    let onReorder: ([ShaderPass]) -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedBuffer = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedBuffer = draggedBuffer,
+            draggedBuffer.id != buffer.id,
+            let fromIndex = buffers.firstIndex(where: { $0.id == draggedBuffer.id }),
+            let toIndex = buffers.firstIndex(where: { $0.id == buffer.id })
+        else {
+            return
+        }
+
+        var newBuffers = buffers
+        newBuffers.move(
+            fromOffsets: IndexSet(integer: fromIndex),
+            toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+        onReorder(newBuffers)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+}
+
+/// Sheet for creating a new buffer
+struct NewBufferSheet: View {
+    let existingBufferNames: Set<String>
+    let onCreate: (String, Bool) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var bufferName: String = ""
+    @State private var enableFeedback: Bool = false
+
+    private var suggestedName: String {
+        // Suggest BufferA, BufferB, etc. based on existing buffers
+        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        for letter in letters {
+            let name = "Buffer\(letter)"
+            if !existingBufferNames.contains(name) {
+                return name
+            }
+        }
+        return "Buffer\(existingBufferNames.count + 1)"
+    }
+
+    private var isValid: Bool {
+        let trimmed = bufferName.trimmingCharacters(in: .whitespaces)
+        return !trimmed.isEmpty && !existingBufferNames.contains(trimmed)
+    }
+
+    private var nameError: String? {
+        let trimmed = bufferName.trimmingCharacters(in: .whitespaces)
+        if existingBufferNames.contains(trimmed) {
+            return "A buffer with this name already exists"
+        }
+        return nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("New Buffer")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Buffer Name:")
+                    .font(.subheadline)
+                    .foregroundColor(AppTheme.textSecondary)
+
+                TextField(suggestedName, text: $bufferName)
+                    .textFieldStyle(.plain)
+                    .padding(6)
+                    .background(AppTheme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+                            .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
+                    )
+                    .onAppear {
+                        bufferName = suggestedName
+                    }
+
+                if let error = nameError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
+
+            Toggle("Enable Feedback", isOn: $enableFeedback)
+                .tint(AppTheme.accent)
+                .help("Allow this buffer to sample its previous frame (for accumulation effects)")
+
+            if enableFeedback {
+                Text("The buffer can sample its previous frame at texture(7)")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+
+            HStack {
+                Spacer()
+
+                Button("Cancel") {
+                    dismiss()
+                }
+                .buttonStyle(.flat)
+                .keyboardShortcut(.cancelAction)
+
+                Button("Create") {
+                    let name = bufferName.trimmingCharacters(in: .whitespaces)
+                    onCreate(name, enableFeedback)
+                    dismiss()
+                }
+                .buttonStyle(.flatPrimary)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!isValid)
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
+        .background(AppTheme.bg)
     }
 }
 
@@ -104,11 +308,11 @@ struct PassRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(pass.name)
-                    .foregroundColor(isSelected ? .white : .primary)
+                    .foregroundColor(isSelected ? AppTheme.accent : AppTheme.textPrimary)
 
                 Text(pass.file)
                     .font(.caption)
-                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                    .foregroundColor(isSelected ? AppTheme.accent.opacity(0.8) : AppTheme.textSecondary)
             }
 
             Spacer()
@@ -132,8 +336,11 @@ struct PassRow: View {
                     .help("Feedback enabled - can sample previous frame")
             }
         }
-        .contentShape(Rectangle())
         .padding(.vertical, 2)
+        .padding(.horizontal, 4)
+        .background(isSelected ? AppTheme.selection : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+        .contentShape(Rectangle())
     }
 
     private var passIcon: String {
@@ -152,21 +359,25 @@ struct PassRow: View {
         } else if hasWarnings {
             return .yellow
         } else if isSelected {
-            return .white
+            return AppTheme.accent
         } else if pass.isMain {
             return .green
         } else {
-            return .accentColor
+            return AppTheme.accent
         }
     }
 }
 
 /// View for workspace mode showing multiple projects
 struct WorkspaceNavigatorView: View {
-    let projects: [ShaderProject]
+    @Binding var projects: [ShaderProject]
     @Binding var selectedProject: ShaderProject?
     @Binding var selectedPass: ShaderPass?
     let passDiagnostics: [String: [CompilationDiagnostic]]
+    let onProjectUpdated: (ShaderProject) -> Void
+
+    @State private var showingNewBufferSheet: Bool = false
+    @State private var newBufferTargetProject: ShaderProject?
 
     var body: some View {
         List {
@@ -185,6 +396,17 @@ struct WorkspaceNavigatorView: View {
                         }
                     }
 
+                    // Add Buffer button
+                    Button {
+                        newBufferTargetProject = project
+                        showingNewBufferSheet = true
+                    } label: {
+                        Label("Add Buffer", systemImage: "plus.circle")
+                            .foregroundColor(AppTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.vertical, 4)
+
                     // Main pass
                     PassRow(
                         pass: project.mainPass,
@@ -199,13 +421,52 @@ struct WorkspaceNavigatorView: View {
                     HStack {
                         Image(systemName: "cube.fill")
                             .foregroundColor(
-                                selectedProject?.id == project.id ? .accentColor : .secondary)
+                                selectedProject?.id == project.id ? AppTheme.accent : AppTheme.textSecondary
+                            )
                         Text(project.name)
                             .font(.headline)
+                            .foregroundColor(AppTheme.textPrimary)
                     }
                 }
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.bg)
+        .sheet(isPresented: $showingNewBufferSheet) {
+            if let targetProject = newBufferTargetProject {
+                NewBufferSheet(
+                    existingBufferNames: Set(targetProject.buffers.map { $0.name }),
+                    onCreate: { name, feedback in
+                        handleCreateBuffer(in: targetProject, name: name, feedback: feedback)
+                    }
+                )
+            }
+        }
+    }
+
+    private func handleCreateBuffer(in project: ShaderProject, name: String, feedback: Bool) {
+        do {
+            let updatedProject = try ProjectConfigService.addBuffer(
+                to: project,
+                name: name,
+                feedback: feedback
+            )
+
+            // Update the projects list
+            if let index = projects.firstIndex(where: { $0.id == project.id }) {
+                projects[index] = updatedProject
+            }
+
+            selectedProject = updatedProject
+            onProjectUpdated(updatedProject)
+
+            // Select the new buffer
+            if let newBuffer = updatedProject.buffers.last {
+                selectedPass = newBuffer
+            }
+        } catch {
+            print("Failed to create buffer: \(error)")
+        }
     }
 }

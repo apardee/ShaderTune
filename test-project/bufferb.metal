@@ -8,11 +8,9 @@ struct Uniforms {
     float scale;
 };
 
-// Main shader - samples from BufferA
 fragment float4 fragmentFunc(
     float4 position [[position]],
-    constant Uniforms& uniforms [[buffer(0)]],
-    texture2d<float> bufferA [[texture(0)]]
+    constant Uniforms& uniforms [[buffer(0)]]
 ) {
-   return bufferA.so
+    return float4(0.0, 1.0, 0.0, 1.0);
 }

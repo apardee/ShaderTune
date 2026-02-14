@@ -33,6 +33,10 @@ struct ContentView: View {
     // Default shader is empty - shows empty state until file is loaded
     private static let defaultShader = ""
 
+    @Environment(PreviewState.self) private var previewState
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
+
     @State private var compiler: MetalCompilerService
     @State private var shaderSource = ContentView.defaultShader
     @State private var autoCompile = true
@@ -43,14 +47,13 @@ struct ContentView: View {
     @State private var showingCompletions = false
     @State private var completions: [CompletionItem] = []
     @State private var completionProvider = CompletionProvider()
-    @State private var mousePosition: CGPoint = .zero
 
     // File navigation state
     @State private var selectedDirectoryURL: URL?
     @State private var fileTree: [FileNode] = []
     @State private var selectedFileURL: URL?
     @State private var isFileDirty: Bool = false
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var showSidebar: Bool = true
 
     // Project mode state
     @State private var currentProject: ShaderProject?
@@ -80,210 +83,108 @@ struct ContentView: View {
         return compiler.diagnostics
     }
 
-    var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            // Sidebar: File Navigator (or Project Navigator)
-            FileNavigatorView(
-                selectedDirectoryURL: $selectedDirectoryURL,
-                fileTree: $fileTree,
-                selectedFileURL: $selectedFileURL,
-                onSelectFile: handleFileSelection,
-                currentProject: $currentProject,
-                selectedPass: $selectedPass,
-                workspaceProjects: $workspaceProjects,
-                passDiagnostics: compiler.passDiagnostics,
-                onSelectPass: handlePassSelection
-            )
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
-        } content: {
-            // Content: Editor with toolbar and find/replace
-            VStack(spacing: 0) {
-                // Toolbar
-                HStack {
-                    if isFileDirty {
-                        Text("●")
-                            .foregroundColor(.orange)
-                            .help("Unsaved changes")
-                    }
+    @ViewBuilder
+    private var contentPane: some View {
+        VStack(spacing: 0) {
+            // Toolbar
+            HStack {
+                if isFileDirty {
+                    Text("●")
+                        .foregroundColor(.orange)
+                        .help("Unsaved changes")
+                }
 
-                    // Show project/pass info or filename
-                    if let project = currentProject, let pass = selectedPass {
-                        HStack(spacing: 4) {
-                            Image(systemName: pass.isMain ? "display" : "square.stack")
-                                .foregroundColor(.accentColor)
-                            Text("\(project.name) / \(pass.name)")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    } else if let filename = selectedFileURL?.lastPathComponent {
-                        Text(filename)
+                // Show project/pass info or filename
+                if let project = currentProject, let pass = selectedPass {
+                    HStack(spacing: 4) {
+                        Image(systemName: pass.isMain ? "display" : "square.stack")
+                            .foregroundColor(AppTheme.accent)
+                        Text("\(project.name) / \(pass.name)")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(AppTheme.textSecondary)
                     }
-
-                    Text("Device: \(compiler.deviceInfo)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Toggle("Auto-compile", isOn: $autoCompile)
-                        .toggleStyle(.switch)
-                        .help("Automatically compile shader as you type")
-
-                    if compiler.isCompiling {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .padding(.leading, 8)
-                    }
-
-                    Button("Compile") {
-                        compileNow()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(compiler.isCompiling)
-                }
-                .padding()
-                #if os(macOS)
-                .background(Color(nsColor: .controlBackgroundColor))
-                #else
-                .background(Color(.systemBackground))
-                #endif
-
-                // Find/Replace bar
-                if showingFindReplace {
-                    FindReplaceView(
-                        searchText: $searchText,
-                        replaceText: $replaceText,
-                        isVisible: $showingFindReplace,
-                        onFind: findNext,
-                        onReplace: replaceNext,
-                        onReplaceAll: replaceAll
-                    )
+                } else if let filename = selectedFileURL?.lastPathComponent {
+                    Text(filename)
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
 
-                // Editor with inline error display
-                if selectedFileURL == nil && shaderSource.isEmpty && currentProject == nil {
-                    // Empty state when no file is selected
-                    VStack(spacing: 20) {
-                        Spacer()
+                Text("Device: \(compiler.deviceInfo)")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textSecondary)
 
-                        Image(
-                            systemName: selectedDirectoryURL != nil
-                                ? "doc.text.magnifyingglass" : "folder.badge.plus"
-                        )
-                        .font(.system(size: 64))
-                        .foregroundColor(.secondary)
+                Spacer()
 
-                        VStack(spacing: 8) {
-                            Text("No Shader Selected")
-                                .font(.title2)
-                                .fontWeight(.semibold)
+                Toggle("Auto-compile", isOn: $autoCompile)
+                    .toggleStyle(.switch)
+                    .tint(AppTheme.accent)
+                    .help("Automatically compile shader as you type")
 
-                            if selectedDirectoryURL != nil {
-                                Text(
-                                    "Select a Metal shader file (.metal) from the sidebar to begin editing"
-                                )
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
-                            } else {
-                                Text("Open a folder (Cmd+O) or drag a shader file here to begin")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 40)
-                            }
-                        }
-
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ZStack(alignment: .topLeading) {
-                        // Editor with native inline errors
-                        ShaderEditorViewWrapper(
-                            source: $shaderSource,
-                            diagnostics: currentDiagnostics
-                        )
-
-                        // Completion popup
-                        if showingCompletions && !completions.isEmpty {
-                            CompletionView(
-                                completions: completions,
-                                onSelect: { item in
-                                    insertCompletion(item)
-                                },
-                                onDismiss: {
-                                    showingCompletions = false
-                                }
-                            )
-                            .offset(x: 100, y: 100)  // Simple fixed position
-                            .transition(.opacity)
-                        }
-                    }
+                if compiler.isCompiling {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .padding(.leading, 8)
                 }
+
+                Button("Compile") {
+                    compileNow()
+                }
+                .buttonStyle(.flatPrimary)
+                .disabled(compiler.isCompiling)
             }
-            .navigationSplitViewColumnWidth(min: 300, ideal: 500)
-        } detail: {
-            // Detail: Renderer preview
-            if currentProject != nil && !passLibraries.isEmpty {
-                // Multi-pass project mode
-                RendererView(
-                    mousePosition: $mousePosition,
-                    compiledLibrary: $compiler.compiledLibrary,
-                    project: $currentProject,
-                    passLibraries: $passLibraries
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(AppTheme.bgLight)
+            .overlay(
+                Rectangle()
+                    .frame(height: AppTheme.borderWidth)
+                    .foregroundColor(AppTheme.border),
+                alignment: .bottom
+            )
+
+            // Find/Replace bar
+            if showingFindReplace {
+                FindReplaceView(
+                    searchText: $searchText,
+                    replaceText: $replaceText,
+                    isVisible: $showingFindReplace,
+                    onFind: findNext,
+                    onReplace: replaceNext,
+                    onReplaceAll: replaceAll
                 )
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        mousePosition = location
-                    case .ended:
-                        break
-                    }
-                }
-                .navigationSplitViewColumnWidth(min: 200, ideal: 400)
-            } else if selectedFileURL != nil && compiler.compiledLibrary != nil {
-                // Single file mode
-                RendererView(
-                    mousePosition: $mousePosition,
-                    compiledLibrary: $compiler.compiledLibrary
-                )
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        mousePosition = location
-                    case .ended:
-                        break
-                    }
-                }
-                .navigationSplitViewColumnWidth(min: 200, ideal: 400)
-            } else {
-                // Empty state when no shader is compiled
+            }
+
+            // Editor with inline error display
+            if selectedFileURL == nil && shaderSource.isEmpty && currentProject == nil {
+                // Empty state when no file is selected
                 VStack(spacing: 20) {
                     Spacer()
 
-                    Image(systemName: "wand.and.stars")
-                        .font(.system(size: 64))
-                        .foregroundColor(.secondary)
+                    Image(
+                        systemName: selectedDirectoryURL != nil
+                            ? "doc.text.magnifyingglass" : "folder.badge.plus"
+                    )
+                    .font(.system(size: 64))
+                    .foregroundColor(AppTheme.textSecondary)
 
                     VStack(spacing: 8) {
-                        Text("No Shader Preview")
+                        Text("No Shader Selected")
                             .font(.title2)
                             .fontWeight(.semibold)
+                            .foregroundColor(AppTheme.textPrimary)
 
-                        if selectedFileURL == nil && currentProject == nil {
-                            Text("Select a shader file to see the rendered output")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
+                        if selectedDirectoryURL != nil {
+                            Text(
+                                "Select a Metal shader file (.metal) from the sidebar to begin editing"
+                            )
+                            .font(.body)
+                            .foregroundColor(AppTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
                         } else {
-                            Text("Compile your shader to see the preview")
+                            Text("Open a folder (Cmd+O) or drag a shader file here to begin")
                                 .font(.body)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(AppTheme.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)
                         }
@@ -292,9 +193,98 @@ struct ContentView: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 400)
+                .background(AppTheme.bg)
+            } else {
+                ZStack(alignment: .topLeading) {
+                    // Editor with native inline errors
+                    ShaderEditorViewWrapper(
+                        source: $shaderSource,
+                        diagnostics: currentDiagnostics
+                    )
+
+                    // Completion popup
+                    if showingCompletions && !completions.isEmpty {
+                        CompletionView(
+                            completions: completions,
+                            onSelect: { item in
+                                insertCompletion(item)
+                            },
+                            onDismiss: {
+                                showingCompletions = false
+                            }
+                        )
+                        .offset(x: 100, y: 100)  // Simple fixed position
+                        .transition(.opacity)
+                    }
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    private var detailPane: some View {
+        if previewState.isDetached {
+            VStack(spacing: 20) {
+                Spacer()
+
+                Image(systemName: "macwindow.on.rectangle")
+                    .font(.system(size: 64))
+                    .foregroundColor(AppTheme.textSecondary)
+
+                VStack(spacing: 8) {
+                    Text("Preview in Separate Window")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(AppTheme.textPrimary)
+
+                    Text("Use View → Attach Preview (⇧⌘D) to bring it back")
+                        .font(.body)
+                        .foregroundColor(AppTheme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.bg)
+        } else {
+            PreviewWindowContent()
+        }
+    }
+
+    var body: some View {
+        mainLayout
+    }
+
+    private var splitView: some View {
+        FlatSplitView(
+            showSidebar: $showSidebar,
+            sidebar: {
+                FileNavigatorView(
+                    selectedDirectoryURL: $selectedDirectoryURL,
+                    fileTree: $fileTree,
+                    selectedFileURL: $selectedFileURL,
+                    onSelectFile: handleFileSelection,
+                    currentProject: $currentProject,
+                    selectedPass: $selectedPass,
+                    workspaceProjects: $workspaceProjects,
+                    passDiagnostics: compiler.passDiagnostics,
+                    onSelectPass: handlePassSelection,
+                    onProjectUpdated: handleProjectUpdated
+                )
+            },
+            content: {
+                contentPane
+            },
+            detail: {
+                detailPane
+            }
+        )
+    }
+
+    private var withKeyBindings: some View {
+        splitView
         #if os(macOS)
         .onKeyPress("f", phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
@@ -333,35 +323,39 @@ struct ContentView: View {
         }
         .focusedSceneValue(\.newFileAction) { newFile() }
         .focusedSceneValue(\.openFileAction) { openFile() }
+        .focusedSceneValue(\.detachPreviewAction) { toggleDetachPreview() }
+        .focusedSceneValue(\.previewDetached, previewState.isDetached)
         .sheet(isPresented: $showingNewFileSheet) {
             NewProjectSheet(onCreate: createNewProject)
         }
         #endif
+    }
+
+    private var withAlerts: some View {
+        withKeyBindings
         .alert("File Error", isPresented: $showingFileError, presenting: fileError) { error in
             Button("OK") {}
         } message: { error in
             Text(error.localizedDescription)
         }
-        .onChange(of: selectedFileURL) { oldValue, newValue in
-            // Keep shaderSource in sync with selected file
+    }
+
+    private var mainLayout: some View {
+        withAlerts
+        .onChange(of: selectedFileURL) { _, newValue in
+            previewState.selectedFileURL = newValue
             if newValue == nil && selectedDirectoryURL != nil {
-                // Folder is open but no file selected - clear the editor
                 shaderSource = ""
                 isFileDirty = false
             } else if newValue == nil && selectedDirectoryURL == nil {
-                // No folder and no file - show default shader
                 shaderSource = ContentView.defaultShader
                 isFileDirty = false
             }
-            // When a file is selected, it's loaded via loadFile() which sets shaderSource
         }
         .onChange(of: shaderSource) { oldValue, newValue in
-            // Mark as dirty when content changes (only for file-backed buffers)
             if selectedFileURL != nil {
                 isFileDirty = true
             }
-
-            // Auto-trigger completion on typing
             if newValue.count > oldValue.count {
                 updateCompletions()
             }
@@ -404,6 +398,26 @@ struct ContentView: View {
         } else {
             // Single file mode
             compiler.compile(source: source)
+        }
+        syncPreviewState()
+    }
+
+    private func syncPreviewState() {
+        previewState.compiledLibrary = compiler.compiledLibrary
+        previewState.currentProject = currentProject
+        previewState.passLibraries = passLibraries
+        previewState.selectedFileURL = selectedFileURL
+    }
+
+    // MARK: - Preview Detach
+
+    private func toggleDetachPreview() {
+        if previewState.isDetached {
+            previewState.isDetached = false
+            dismissWindow(id: "shader-preview")
+        } else {
+            previewState.isDetached = true
+            openWindow(id: "shader-preview")
         }
     }
 
@@ -509,6 +523,7 @@ struct ContentView: View {
                 fileTree = []
             }
         }
+        syncPreviewState()
     }
 
     private func loadFile(_ url: URL) {
@@ -522,6 +537,7 @@ struct ContentView: View {
             shaderSource = content
             selectedFileURL = url
             isFileDirty = false
+            syncPreviewState()
 
             // Compile the newly loaded shader if auto-compile is enabled
             if autoCompile {
@@ -568,6 +584,18 @@ struct ContentView: View {
         let fileURL = project.fileURL(for: pass)
         loadFile(fileURL)
         selectedPass = pass
+    }
+
+    private func handleProjectUpdated(_ project: ShaderProject) {
+        // Recompile the project when it's updated (e.g., new buffer added)
+        passLibraries = compiler.compileProject(project)
+
+        // If a new buffer was added, load its file
+        if let pass = selectedPass {
+            let fileURL = project.fileURL(for: pass)
+            loadFile(fileURL)
+        }
+        syncPreviewState()
     }
 
     // MARK: - New/Open File Actions
@@ -630,6 +658,7 @@ struct ContentView: View {
             selectedPass = project.mainPass
             let fileURL = project.fileURL(for: project.mainPass)
             loadFile(fileURL)
+            syncPreviewState()
         } catch {
             fileError = .projectError(error.localizedDescription)
             showingFileError = true
@@ -639,5 +668,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environment(PreviewState())
         .frame(width: 800, height: 600)
 }

@@ -7,6 +7,17 @@
 
 import SwiftUI
 
+// Helper extension to unwrap optional bindings
+extension Binding {
+    func unwrap<T>() -> Binding<T>? where Value == T? {
+        guard wrappedValue != nil else { return nil }
+        return Binding<T>(
+            get: { self.wrappedValue! },
+            set: { self.wrappedValue = $0 }
+        )
+    }
+}
+
 struct FileNavigatorView: View {
     @Binding var selectedDirectoryURL: URL?
     @Binding var fileTree: [FileNode]
@@ -20,6 +31,7 @@ struct FileNavigatorView: View {
     @Binding var workspaceProjects: [ShaderProject]
     let passDiagnostics: [String: [CompilationDiagnostic]]
     let onSelectPass: (ShaderPass) -> Void
+    let onProjectUpdated: (ShaderProject) -> Void
 
     @State private var isRootExpanded: Bool = true
 
@@ -32,7 +44,8 @@ struct FileNavigatorView: View {
         selectedPass: Binding<ShaderPass?> = .constant(nil),
         workspaceProjects: Binding<[ShaderProject]> = .constant([]),
         passDiagnostics: [String: [CompilationDiagnostic]] = [:],
-        onSelectPass: @escaping (ShaderPass) -> Void = { _ in }
+        onSelectPass: @escaping (ShaderPass) -> Void = { _ in },
+        onProjectUpdated: @escaping (ShaderProject) -> Void = { _ in }
     ) {
         self._selectedDirectoryURL = selectedDirectoryURL
         self._fileTree = fileTree
@@ -43,6 +56,7 @@ struct FileNavigatorView: View {
         self._workspaceProjects = workspaceProjects
         self.passDiagnostics = passDiagnostics
         self.onSelectPass = onSelectPass
+        self.onProjectUpdated = onProjectUpdated
     }
 
     var body: some View {
@@ -50,12 +64,13 @@ struct FileNavigatorView: View {
             if selectedDirectoryURL == nil {
                 // No folder selected
                 emptyStateView
-            } else if let project = currentProject {
+            } else if currentProject != nil {
                 // Project mode - show passes
                 ProjectNavigatorView(
-                    project: project,
+                    project: $currentProject.unwrap()!,
                     selectedPass: $selectedPass,
-                    passDiagnostics: passDiagnostics
+                    passDiagnostics: passDiagnostics,
+                    onProjectUpdated: onProjectUpdated
                 )
                 .onChange(of: selectedPass) { _, newPass in
                     if let pass = newPass {
@@ -65,10 +80,11 @@ struct FileNavigatorView: View {
             } else if !workspaceProjects.isEmpty {
                 // Workspace mode - show multiple projects
                 WorkspaceNavigatorView(
-                    projects: workspaceProjects,
+                    projects: $workspaceProjects,
                     selectedProject: $currentProject,
                     selectedPass: $selectedPass,
-                    passDiagnostics: passDiagnostics
+                    passDiagnostics: passDiagnostics,
+                    onProjectUpdated: onProjectUpdated
                 )
                 .onChange(of: selectedPass) { _, newPass in
                     if let pass = newPass {
@@ -86,15 +102,16 @@ struct FileNavigatorView: View {
         VStack(spacing: 12) {
             Image(systemName: "folder.badge.questionmark")
                 .font(.system(size: 48))
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme.textSecondary)
             Text("No folder selected")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme.textSecondary)
             Text("Use File → Open (Cmd+O)")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppTheme.bg)
     }
 
     private var fileTreeView: some View {
@@ -113,10 +130,12 @@ struct FileNavigatorView: View {
                     systemImage: "folder.fill"
                 )
                 .font(.headline)
-                .foregroundColor(.accentColor)
+                .foregroundColor(AppTheme.accent)
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.bg)
     }
 }
 
@@ -140,7 +159,7 @@ struct FileNodeView: View {
                 }
             } label: {
                 Label(node.name, systemImage: "folder.fill")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(AppTheme.accent)
             }
         } else {
             Button(
@@ -148,9 +167,19 @@ struct FileNodeView: View {
                 label: {
                     HStack {
                         Label(node.name, systemImage: "doc.text.fill")
-                            .foregroundColor(selectedFileURL == node.url ? .white : .primary)
+                            .foregroundColor(
+                                selectedFileURL == node.url
+                                    ? AppTheme.accent : AppTheme.textPrimary
+                            )
                         Spacer()
                     }
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, 4)
+                    .background(
+                        selectedFileURL == node.url
+                            ? AppTheme.selection : Color.clear
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
                     .contentShape(Rectangle())
                 }
             )

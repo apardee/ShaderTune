@@ -221,6 +221,84 @@ class ProjectConfigService {
         return project
     }
 
+    /// Creates a new buffer and adds it to the project
+    /// - Parameters:
+    ///   - project: The project to add the buffer to
+    ///   - name: The buffer name (e.g., "BufferA")
+    ///   - feedback: Whether the buffer can sample its previous frame
+    /// - Returns: The updated project with the new buffer
+    static func addBuffer(
+        to project: ShaderProject,
+        name: String,
+        feedback: Bool = false
+    ) throws -> ShaderProject {
+        // Create buffer filename from name (e.g., "BufferA" -> "buffer_a.metal")
+        let filename = name.lowercased().replacingOccurrences(of: " ", with: "_") + ".metal"
+        let fileURL = project.projectURL.appendingPathComponent(filename)
+
+        // Create the buffer shader file
+        let defaultBufferShader = """
+            #include <metal_stdlib>
+            using namespace metal;
+
+            struct Uniforms {
+                float time;
+                float2 mouse;
+                float2 resolution;
+                float scale;
+            };
+
+            fragment float4 fragmentFunc(
+                float4 position [[position]],
+                constant Uniforms& uniforms [[buffer(0)]]\(feedback ? ",\n    texture2d<float> previousFrame [[texture(7)]]  // Feedback from previous frame" : "")
+            ) {
+                float2 uv = position.xy / uniforms.resolution;
+            \(feedback ? """
+
+                // Sample previous frame for feedback effect
+                constexpr sampler s(filter::linear);
+                float4 previous = previousFrame.sample(s, uv);
+
+                // Fade previous frame and add new content
+                float3 color = previous.rgb * 0.98;
+
+            """ : "    float3 color = float3(uv, 0.5 + 0.5 * sin(uniforms.time));\n")
+                return float4(color, 1.0);
+            }
+            """
+        try defaultBufferShader.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        // Create the new buffer pass
+        let newBuffer = ShaderPass(
+            name: name,
+            file: filename,
+            feedback: feedback,
+            isMain: false
+        )
+
+        // Create updated project with the new buffer
+        let updatedProject = project.withBuffer(newBuffer)
+
+        // Save the updated project configuration
+        try saveProject(updatedProject)
+
+        return updatedProject
+    }
+
+    /// Reorders buffers in a project
+    /// - Parameters:
+    ///   - project: The project to modify
+    ///   - newOrder: The new buffer order
+    /// - Returns: The updated project
+    static func reorderBuffers(
+        in project: ShaderProject,
+        newOrder: [ShaderPass]
+    ) throws -> ShaderProject {
+        let updatedProject = project.withReorderedBuffers(newOrder)
+        try saveProject(updatedProject)
+        return updatedProject
+    }
+
     // MARK: - Private Helpers
 
     private static func convertToProject(
@@ -262,6 +340,7 @@ class ProjectConfigService {
             } ?? []
 
         return ShaderProject(
+            version: config.version ?? ShaderProject.currentVersion,
             name: config.name,
             mainPass: mainPass,
             buffers: buffers,
@@ -303,6 +382,7 @@ class ProjectConfigService {
             }
 
         return YAMLProjectConfig(
+            version: project.version,
             name: project.name,
             main: mainConfig,
             buffers: buffers
