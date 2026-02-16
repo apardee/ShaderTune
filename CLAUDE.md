@@ -57,6 +57,11 @@ Open `ShaderTune.xcodeproj` in Xcode and use Cmd+R to build and run.
 - `ShaderTune/Editor/CompletionView.swift` - Code completion popup (Ctrl+Space)
 - `ShaderTune/Editor/CompletionProvider.swift` - Completion filtering and trigger detection
 - `ShaderTune/Editor/MetalKeywordDatabase.swift` - 200+ Metal keywords, types, and functions
+- `ShaderTune/Editor/DiagnosticsPane.swift` - Xcode-style bottom pane for compiler errors/warnings (Cmd+Shift+M)
+
+**UI Components:**
+- `ShaderTune/Theme/FlatSplitView.swift` - 3-pane horizontal split view
+- `ShaderTune/Theme/FlatSplitViewWithBottom.swift` - 3-pane horizontal + bottom pane split view
 
 **Assets:**
 - `ShaderTune/Assets.xcassets/` - Image and color assets
@@ -76,6 +81,9 @@ Open `ShaderTune.xcodeproj` in Xcode and use Cmd+R to build and run.
 - Manual compile button
 - Error parsing from Metal compiler output
 - Inline error display at source location
+- Xcode-style diagnostics pane (Cmd+Shift+M) showing all errors/warnings
+- Auto-shows diagnostics pane when compilation errors occur
+- Click diagnostic to jump to error location
 
 ### Code Completion
 - Ctrl+Space to trigger completion popup

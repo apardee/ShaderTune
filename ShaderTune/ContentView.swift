@@ -56,6 +56,7 @@ struct ContentView: View {
     /// Snapshot of the file content as last loaded from or saved to disk.
     @State private var savedSource: String = ""
     @State private var showSidebar: Bool = true
+    @State private var showDiagnostics: Bool = false
 
     // Project mode state
     @State private var currentProject: ShaderProject?
@@ -238,8 +239,9 @@ struct ContentView: View {
     }
 
     private var splitView: some View {
-        FlatSplitView(
+        FlatSplitViewWithBottom(
             showSidebar: $showSidebar,
+            showBottom: $showDiagnostics,
             sidebar: {
                 FileNavigatorView(
                     selectedDirectoryURL: $selectedDirectoryURL,
@@ -259,6 +261,18 @@ struct ContentView: View {
             },
             detail: {
                 detailPane
+            },
+            bottom: {
+                DiagnosticsPane(
+                    diagnostics: currentDiagnostics,
+                    onDismiss: {
+                        showDiagnostics = false
+                    },
+                    onSelectDiagnostic: { diagnostic in
+                        // Jump to line in editor (simplified - would need cursor positioning)
+                        print("Jump to line \(diagnostic.line)")
+                    }
+                )
             }
         )
     }
@@ -301,10 +315,19 @@ struct ContentView: View {
             }
             return .ignored
         }
+        .onKeyPress("m", phases: .down) { keyPress in
+            if keyPress.modifiers.contains([.command, .shift]) {
+                showDiagnostics.toggle()
+                return .handled
+            }
+            return .ignored
+        }
         .focusedSceneValue(\.newFileAction) { newFile() }
         .focusedSceneValue(\.openFileAction) { openFile() }
         .focusedSceneValue(\.detachPreviewAction) { toggleDetachPreview() }
         .focusedSceneValue(\.previewDetached, previewState.isDetached)
+        .focusedSceneValue(\.toggleDiagnosticsAction) { showDiagnostics.toggle() }
+        .focusedSceneValue(\.diagnosticsVisible, showDiagnostics)
         .sheet(isPresented: $showingNewFileSheet) {
             NewProjectSheet(onCreate: createNewProject)
         }
@@ -322,6 +345,12 @@ struct ContentView: View {
 
     private var mainLayout: some View {
         withAlerts
+            .onChange(of: currentDiagnostics) { _, newValue in
+                // Auto-show diagnostics pane when there are errors
+                if !newValue.isEmpty && !showDiagnostics {
+                    showDiagnostics = true
+                }
+            }
             .onChange(of: selectedDirectoryURL) { _, newValue in
                 if let dir = newValue {
                     fileWatcher.watch(directory: dir)

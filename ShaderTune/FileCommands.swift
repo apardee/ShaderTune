@@ -25,6 +25,14 @@ struct PreviewDetachedKey: FocusedValueKey {
     typealias Value = Bool
 }
 
+struct ToggleDiagnosticsActionKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
+struct DiagnosticsVisibleKey: FocusedValueKey {
+    typealias Value = Bool
+}
+
 extension FocusedValues {
     var newFileAction: (() -> Void)? {
         get { self[NewFileActionKey.self] }
@@ -45,6 +53,16 @@ extension FocusedValues {
         get { self[PreviewDetachedKey.self] }
         set { self[PreviewDetachedKey.self] = newValue }
     }
+
+    var toggleDiagnosticsAction: (() -> Void)? {
+        get { self[ToggleDiagnosticsActionKey.self] }
+        set { self[ToggleDiagnosticsActionKey.self] = newValue }
+    }
+
+    var diagnosticsVisible: Bool? {
+        get { self[DiagnosticsVisibleKey.self] }
+        set { self[DiagnosticsVisibleKey.self] = newValue }
+    }
 }
 
 // MARK: - File Menu Commands
@@ -54,6 +72,8 @@ extension FocusedValues {
 struct ViewMenuCommands: Commands {
     @FocusedValue(\.detachPreviewAction) var detachPreviewAction
     @FocusedValue(\.previewDetached) var previewDetached
+    @FocusedValue(\.toggleDiagnosticsAction) var toggleDiagnosticsAction
+    @FocusedValue(\.diagnosticsVisible) var diagnosticsVisible
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
@@ -61,6 +81,13 @@ struct ViewMenuCommands: Commands {
                 detachPreviewAction?()
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
+
+            Divider()
+
+            Button(diagnosticsVisible == true ? "Hide Diagnostics" : "Show Diagnostics") {
+                toggleDiagnosticsAction?()
+            }
+            .keyboardShortcut("m", modifiers: [.command, .shift])
         }
     }
 }
