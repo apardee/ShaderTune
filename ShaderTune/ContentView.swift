@@ -57,6 +57,7 @@ struct ContentView: View {
     @State private var savedSource: String = ""
     @State private var showSidebar: Bool = true
     @State private var showDiagnostics: Bool = false
+    @State private var recentProjects: [URL] = []
 
     // Project mode state
     @State private var currentProject: ShaderProject?
@@ -79,6 +80,7 @@ struct ContentView: View {
             fatalError("Metal is not supported on this device")
         }
         self.compiler = compiler
+        self.recentProjects = RecentProjectsService.getRecentProjects()
     }
 
     /// Returns diagnostics for the currently selected pass, or global diagnostics
@@ -328,6 +330,9 @@ struct ContentView: View {
         .focusedSceneValue(\.previewDetached, previewState.isDetached)
         .focusedSceneValue(\.toggleDiagnosticsAction) { showDiagnostics.toggle() }
         .focusedSceneValue(\.diagnosticsVisible, showDiagnostics)
+        .focusedSceneValue(\.recentProjects, recentProjects)
+        .focusedSceneValue(\.openRecentProjectAction, openRecentProject)
+        .focusedSceneValue(\.clearRecentProjectsAction, clearRecentProjects)
         .sheet(isPresented: $showingNewFileSheet) {
             NewProjectSheet(onCreate: createNewProject)
         }
@@ -711,6 +716,13 @@ struct ContentView: View {
 
             selectedDirectoryURL = directoryURL
             scanDirectory(directoryURL)
+
+            // Add to recent projects if it's a project directory
+            if ProjectConfigService.isProjectDirectory(directoryURL)
+                || ProjectConfigService.isWorkspaceDirectory(directoryURL)
+            {
+                addToRecentProjects(directoryURL)
+            }
         }
     }
     #endif
@@ -733,10 +745,31 @@ struct ContentView: View {
             let fileURL = project.fileURL(for: project.mainPass)
             loadFile(fileURL)
             syncPreviewState()
+
+            // Add to recent projects
+            addToRecentProjects(projectURL)
         } catch {
             fileError = .projectError(error.localizedDescription)
             showingFileError = true
         }
+    }
+
+    // MARK: - Recent Projects
+
+    private func addToRecentProjects(_ url: URL) {
+        RecentProjectsService.addRecentProject(url)
+        recentProjects = RecentProjectsService.getRecentProjects()
+    }
+
+    private func openRecentProject(_ url: URL) {
+        selectedDirectoryURL = url
+        scanDirectory(url)
+        addToRecentProjects(url)
+    }
+
+    private func clearRecentProjects() {
+        RecentProjectsService.clearRecentProjects()
+        recentProjects = []
     }
 }
 

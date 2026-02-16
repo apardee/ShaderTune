@@ -33,6 +33,18 @@ struct DiagnosticsVisibleKey: FocusedValueKey {
     typealias Value = Bool
 }
 
+struct RecentProjectsKey: FocusedValueKey {
+    typealias Value = [URL]
+}
+
+struct OpenRecentProjectActionKey: FocusedValueKey {
+    typealias Value = (URL) -> Void
+}
+
+struct ClearRecentProjectsActionKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
 extension FocusedValues {
     var newFileAction: (() -> Void)? {
         get { self[NewFileActionKey.self] }
@@ -62,6 +74,21 @@ extension FocusedValues {
     var diagnosticsVisible: Bool? {
         get { self[DiagnosticsVisibleKey.self] }
         set { self[DiagnosticsVisibleKey.self] = newValue }
+    }
+
+    var recentProjects: [URL]? {
+        get { self[RecentProjectsKey.self] }
+        set { self[RecentProjectsKey.self] = newValue }
+    }
+
+    var openRecentProjectAction: ((URL) -> Void)? {
+        get { self[OpenRecentProjectActionKey.self] }
+        set { self[OpenRecentProjectActionKey.self] = newValue }
+    }
+
+    var clearRecentProjectsAction: (() -> Void)? {
+        get { self[ClearRecentProjectsActionKey.self] }
+        set { self[ClearRecentProjectsActionKey.self] = newValue }
     }
 }
 
@@ -97,6 +124,9 @@ struct ViewMenuCommands: Commands {
 struct FileMenuCommands: Commands {
     @FocusedValue(\.newFileAction) var newFileAction
     @FocusedValue(\.openFileAction) var openFileAction
+    @FocusedValue(\.recentProjects) var recentProjects
+    @FocusedValue(\.openRecentProjectAction) var openRecentProjectAction
+    @FocusedValue(\.clearRecentProjectsAction) var clearRecentProjectsAction
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -109,6 +139,29 @@ struct FileMenuCommands: Commands {
                 openFileAction?()
             }
             .keyboardShortcut("o", modifiers: .command)
+
+            Divider()
+
+            // Open Recent submenu
+            Menu("Open Recent") {
+                if let projects = recentProjects, !projects.isEmpty {
+                    ForEach(projects, id: \.self) { url in
+                        Button(RecentProjectsService.displayName(for: url)) {
+                            openRecentProjectAction?(url)
+                        }
+                    }
+
+                    Divider()
+
+                    Button("Clear Menu") {
+                        clearRecentProjectsAction?()
+                    }
+                } else {
+                    Text("No Recent Projects")
+                        .disabled(true)
+                }
+            }
+            .disabled(recentProjects?.isEmpty ?? true)
         }
     }
 }

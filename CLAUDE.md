@@ -46,6 +46,11 @@ Open `ShaderTune.xcodeproj` in Xcode and use Cmd+R to build and run.
 - Parses compiler errors with regex: `program_source:(\d+):(\d+):\s*(error|warning):\s*(.+)`
 - Errors displayed inline in the editor with native TextKit 2 messaging system
 
+**Recent Projects:**
+- `ShaderTune/Services/RecentProjectsService.swift` - Tracks and persists recently opened projects
+- Uses security-scoped bookmarks for persistent URL access
+- Stores up to 10 recent projects in UserDefaults
+
 **Models:**
 - `ShaderTune/Models/CompilationDiagnostic.swift` - Compilation error/warning model
 - `ShaderTune/Models/ShaderTemplate.swift` - 10 built-in shader templates (Fragment, Vertex, Compute, Complete Pipelines)
@@ -104,6 +109,12 @@ Open `ShaderTune.xcodeproj` in Xcode and use Cmd+R to build and run.
 - Cmd+F keyboard shortcut
 - Find Next, Replace, Replace All functionality
 - Basic string matching (case-sensitive)
+
+### Recent Projects
+- File → Open Recent submenu shows up to 10 recently opened projects
+- Security-scoped bookmarks persist project URLs across app launches
+- "Clear Menu" option at bottom of submenu to forget all recent projects
+- Auto-tracks projects opened via "Open..." dialog or created via "New Project..."
 
 ## Development Notes
 
