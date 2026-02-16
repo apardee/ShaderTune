@@ -228,32 +228,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailPane: some View {
-        if previewState.isDetached {
-            VStack(spacing: 20) {
-                Spacer()
-
-                Image(systemName: "macwindow.on.rectangle")
-                    .font(.system(size: 64))
-                    .foregroundColor(AppTheme.textSecondary)
-
-                VStack(spacing: 8) {
-                    Text("Preview in Separate Window")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.textPrimary)
-
-                    Text("Use View → Attach Preview (⇧⌘D) to bring it back")
-                        .font(.body)
-                        .foregroundColor(AppTheme.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppTheme.bg)
-        } else {
+        if !previewState.isDetached {
             PreviewWindowContent()
         }
     }
