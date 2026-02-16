@@ -1,12 +1,10 @@
-#include <metal_stdlib>
-using namespace metal;
-
-struct Uniforms {
-    float time;
-    float2 mouse;
-    float2 resolution;
-    float scale;
-};
+// Uniforms are provided automatically by ShaderTune
+// struct Uniforms {
+//     float time;
+//     float2 mouse;
+//     float2 resolution;
+//     float scale;
+// };
 
 // BufferA - accumulating feedback effect
 fragment float4 fragmentFunc(

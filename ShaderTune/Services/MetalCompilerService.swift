@@ -5,6 +5,23 @@ import Observation
 /// Service responsible for compiling Metal shader source code and reporting diagnostics
 @MainActor @Observable
 class MetalCompilerService {
+    /// Uniforms struct auto-prepended to user shader source before compilation.
+    static let uniformsHeader = """
+        #include <metal_stdlib>
+        using namespace metal;
+
+        struct Uniforms {
+            float time;
+            float2 mouse;
+            float2 resolution;
+            float scale;
+        };
+
+        """
+
+    /// Number of lines in the uniformsHeader (used to adjust diagnostic line numbers).
+    static let uniformsHeaderLineCount = uniformsHeader.components(separatedBy: "\n").count - 1
+
     private let device: MTLDevice
     var diagnostics: [CompilationDiagnostic] = []
     var compiledLibrary: MTLLibrary?
@@ -29,12 +46,14 @@ class MetalCompilerService {
         isCompiling = true
         diagnostics = []
 
+        let fullSource = Self.uniformsHeader + source
+
         do {
             let options = MTLCompileOptions()
             options.mathMode = .safe
             options.languageVersion = .version3_2
 
-            let library = try device.makeLibrary(source: source, options: options)
+            let library = try device.makeLibrary(source: fullSource, options: options)
             self.compiledLibrary = library
             self.diagnostics = []
         } catch let error as NSError {
@@ -55,12 +74,14 @@ class MetalCompilerService {
 
         defer { isCompiling = false }
 
+        let fullSource = Self.uniformsHeader + source
+
         do {
             let options = MTLCompileOptions()
             options.mathMode = .safe
             options.languageVersion = .version3_2
 
-            let library = try device.makeLibrary(source: source, options: options)
+            let library = try device.makeLibrary(source: fullSource, options: options)
             passLibraries[passName] = library
             passDiagnostics[passName] = []
             return library
@@ -114,12 +135,14 @@ class MetalCompilerService {
 
     /// Internal compile method that doesn't set isCompiling (for use in compileProject)
     private func compilePassSource(source: String, passName: String) -> MTLLibrary? {
+        let fullSource = Self.uniformsHeader + source
+
         do {
             let options = MTLCompileOptions()
             options.mathMode = .safe
             options.languageVersion = .version3_2
 
-            let library = try device.makeLibrary(source: source, options: options)
+            let library = try device.makeLibrary(source: fullSource, options: options)
             passDiagnostics[passName] = []
             return library
         } catch let error as NSError {
@@ -173,10 +196,11 @@ class MetalCompilerService {
         regex.enumerateMatches(in: message, range: range) { match, _, _ in
             guard let match = match else { return }
 
-            // Extract line number
+            // Extract line number (adjusted for auto-prepended uniforms header)
             guard let lineRange = Range(match.range(at: 1), in: message),
-                let line = Int(message[lineRange])
+                let rawLine = Int(message[lineRange])
             else { return }
+            let line = max(1, rawLine - Self.uniformsHeaderLineCount)
 
             // Extract column number (optional)
             var column: Int?
