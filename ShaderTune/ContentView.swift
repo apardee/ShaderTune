@@ -53,6 +53,8 @@ struct ContentView: View {
     @State private var fileTree: [FileNode] = []
     @State private var selectedFileURL: URL?
     @State private var isFileDirty: Bool = false
+    /// Snapshot of the file content as last loaded from or saved to disk.
+    @State private var savedSource: String = ""
     @State private var showSidebar: Bool = true
 
     // Project mode state
@@ -63,6 +65,9 @@ struct ContentView: View {
 
     // New file sheet
     @State private var showingNewFileSheet: Bool = false
+
+    // File watcher for external changes
+    @State private var fileWatcher = FileWatcherService()
 
     // Error handling
     @State private var fileError: FileError?
@@ -285,7 +290,7 @@ struct ContentView: View {
 
     private var withKeyBindings: some View {
         splitView
-        #if os(macOS)
+            #if os(macOS)
         .onKeyPress("f", phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
                 showingFindReplace.toggle()
@@ -328,41 +333,53 @@ struct ContentView: View {
         .sheet(isPresented: $showingNewFileSheet) {
             NewProjectSheet(onCreate: createNewProject)
         }
-        #endif
+            #endif
     }
 
     private var withAlerts: some View {
         withKeyBindings
-        .alert("File Error", isPresented: $showingFileError, presenting: fileError) { error in
-            Button("OK") {}
-        } message: { error in
-            Text(error.localizedDescription)
-        }
+            .alert("File Error", isPresented: $showingFileError, presenting: fileError) { error in
+                Button("OK") {}
+            } message: { error in
+                Text(error.localizedDescription)
+            }
     }
 
     private var mainLayout: some View {
         withAlerts
-        .onChange(of: selectedFileURL) { _, newValue in
-            previewState.selectedFileURL = newValue
-            if newValue == nil && selectedDirectoryURL != nil {
-                shaderSource = ""
-                isFileDirty = false
-            } else if newValue == nil && selectedDirectoryURL == nil {
-                shaderSource = ContentView.defaultShader
-                isFileDirty = false
+            .onChange(of: selectedDirectoryURL) { _, newValue in
+                if let dir = newValue {
+                    fileWatcher.watch(directory: dir)
+                    fileWatcher.onChange = { [self] changedURLs in
+                        handleExternalFileChanges(changedURLs)
+                    }
+                } else {
+                    fileWatcher.stop()
+                }
             }
-        }
-        .onChange(of: shaderSource) { oldValue, newValue in
-            if selectedFileURL != nil {
-                isFileDirty = true
+            .onChange(of: selectedFileURL) { _, newValue in
+                previewState.selectedFileURL = newValue
+                if newValue == nil && selectedDirectoryURL != nil {
+                    savedSource = ""
+                    shaderSource = ""
+                    isFileDirty = false
+                } else if newValue == nil && selectedDirectoryURL == nil {
+                    savedSource = ContentView.defaultShader
+                    shaderSource = ContentView.defaultShader
+                    isFileDirty = false
+                }
             }
-            if newValue.count > oldValue.count {
-                updateCompletions()
+            .onChange(of: shaderSource) { oldValue, newValue in
+                if selectedFileURL != nil {
+                    isFileDirty = newValue != savedSource
+                }
+                if newValue.count > oldValue.count {
+                    updateCompletions()
+                }
+                if autoCompile && !newValue.isEmpty {
+                    scheduleCompilation(for: newValue)
+                }
             }
-            if autoCompile && !newValue.isEmpty {
-                scheduleCompilation(for: newValue)
-            }
-        }
     }
 
     private func scheduleCompilation(for source: String) {
@@ -534,6 +551,7 @@ struct ContentView: View {
 
         do {
             let content = try String(contentsOf: url, encoding: .utf8)
+            savedSource = content
             shaderSource = content
             selectedFileURL = url
             isFileDirty = false
@@ -550,8 +568,10 @@ struct ContentView: View {
     }
 
     private func saveFile(_ url: URL) {
+        fileWatcher.markSaved(url)
         do {
             try shaderSource.write(to: url, atomically: true, encoding: .utf8)
+            savedSource = shaderSource
             isFileDirty = false
         } catch {
             print(error)
@@ -596,6 +616,56 @@ struct ContentView: View {
             loadFile(fileURL)
         }
         syncPreviewState()
+    }
+
+    // MARK: - External File Change Handling
+
+    private func handleExternalFileChanges(_ changedURLs: Set<URL>) {
+        for url in changedURLs {
+            let filename = url.lastPathComponent.lowercased()
+
+            // Handle project.yaml changes — reload the entire project
+            if filename == "project.yaml" || filename == "project.yml" {
+                if let dir = selectedDirectoryURL {
+                    scanDirectory(dir)
+                }
+                return
+            }
+
+            // Handle .metal file changes
+            if url == selectedFileURL {
+                // Currently open file changed externally
+                if isFileDirty {
+                    // Don't overwrite unsaved user edits
+                    continue
+                }
+                // Reload the file content
+                do {
+                    let content = try String(contentsOf: url, encoding: .utf8)
+                    savedSource = content
+                    shaderSource = content
+                    isFileDirty = false
+                    if autoCompile {
+                        compileNow()
+                    }
+                } catch {
+                    // File may have been deleted or be temporarily unreadable
+                }
+            } else if let project = currentProject {
+                // A different pass in the project changed — recompile it
+                for pass in project.buffers where project.fileURL(for: pass) == url {
+                    do {
+                        let source = try String(contentsOf: url, encoding: .utf8)
+                        if let library = compiler.compilePass(
+                            source: source, passName: pass.name)
+                        {
+                            passLibraries[pass.name] = library
+                        }
+                    } catch {}
+                }
+                syncPreviewState()
+            }
+        }
     }
 
     // MARK: - New/Open File Actions
