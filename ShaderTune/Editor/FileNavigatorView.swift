@@ -11,9 +11,10 @@ import SwiftUI
 extension Binding {
     func unwrap<T>() -> Binding<T>? where Value == T? {
         guard wrappedValue != nil else { return nil }
+        nonisolated(unsafe) let binding = self
         return Binding<T>(
-            get: { self.wrappedValue! },
-            set: { self.wrappedValue = $0 }
+            get: { binding.wrappedValue! },
+            set: { binding.wrappedValue = $0 }
         )
     }
 }
