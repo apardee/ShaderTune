@@ -94,62 +94,6 @@ struct ContentView: View {
     @ViewBuilder
     private var contentPane: some View {
         VStack(spacing: 0) {
-            // Toolbar
-            HStack {
-                if isFileDirty {
-                    Text("●")
-                        .foregroundColor(.orange)
-                        .help("Unsaved changes")
-                }
-
-                // Show project/pass info or filename
-                if let project = currentProject, let pass = selectedPass {
-                    HStack(spacing: 4) {
-                        Image(systemName: pass.isMain ? "display" : "square.stack")
-                            .foregroundColor(AppTheme.accent)
-                        Text("\(project.name) / \(pass.name)")
-                            .font(.subheadline)
-                            .foregroundColor(AppTheme.textSecondary)
-                    }
-                } else if let filename = selectedFileURL?.lastPathComponent {
-                    Text(filename)
-                        .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
-                }
-
-                Text("Device: \(compiler.deviceInfo)")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
-
-                Spacer()
-
-                Toggle("Auto-compile", isOn: $autoCompile)
-                    .toggleStyle(.switch)
-                    .tint(AppTheme.accent)
-                    .help("Automatically compile shader as you type")
-
-                if compiler.isCompiling {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .padding(.leading, 8)
-                }
-
-                Button("Compile") {
-                    compileNow()
-                }
-                .buttonStyle(.flatPrimary)
-                .disabled(compiler.isCompiling)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(AppTheme.bgLight)
-            .overlay(
-                Rectangle()
-                    .frame(height: AppTheme.borderWidth)
-                    .foregroundColor(AppTheme.border),
-                alignment: .bottom
-            )
-
             // Find/Replace bar
             if showingFindReplace {
                 FindReplaceView(
@@ -282,6 +226,44 @@ struct ContentView: View {
     private var withKeyBindings: some View {
         splitView
             #if os(macOS)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 6) {
+                    if isFileDirty {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 7))
+                            .foregroundColor(.orange)
+                            .help("Unsaved changes")
+                    }
+                    if let project = currentProject, let pass = selectedPass {
+                        Image(systemName: pass.isMain ? "display" : "square.stack")
+                            .foregroundColor(AppTheme.accent)
+                        Text("\(project.name) / \(pass.name)")
+                            .font(.subheadline)
+                            .foregroundColor(AppTheme.textSecondary)
+                    } else if let filename = selectedFileURL?.lastPathComponent {
+                        Text(filename)
+                            .font(.subheadline)
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
+                Toggle("Auto-compile", isOn: $autoCompile)
+                    .toggleStyle(.switch)
+                    .tint(AppTheme.accent)
+                    .help("Automatically compile shader as you type")
+                if compiler.isCompiling {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+                Button("Compile") {
+                    compileNow()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(compiler.isCompiling)
+            }
+        }
         .onKeyPress("f", phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
                 showingFindReplace.toggle()
