@@ -34,8 +34,6 @@ struct ContentView: View {
     private static let defaultShader = ""
 
     @Environment(PreviewState.self) private var previewState
-    @Environment(\.openWindow) private var openWindow
-    @Environment(\.dismissWindow) private var dismissWindow
 
     @State private var compiler: MetalCompilerService
     @State private var shaderSource = ContentView.defaultShader
@@ -308,8 +306,6 @@ struct ContentView: View {
         }
         .focusedSceneValue(\.newFileAction) { newFile() }
         .focusedSceneValue(\.openFileAction) { openFile() }
-        .focusedSceneValue(\.detachPreviewAction) { toggleDetachPreview() }
-        .focusedSceneValue(\.previewDetached, previewState.isDetached)
         .focusedSceneValue(\.toggleDiagnosticsAction) { showDiagnostics.toggle() }
         .focusedSceneValue(\.diagnosticsVisible, showDiagnostics)
         .focusedSceneValue(\.recentProjects, recentProjects)
@@ -415,18 +411,6 @@ struct ContentView: View {
         previewState.currentProject = currentProject
         previewState.passLibraries = passLibraries
         previewState.selectedFileURL = selectedFileURL
-    }
-
-    // MARK: - Preview Detach
-
-    private func toggleDetachPreview() {
-        if previewState.isDetached {
-            previewState.isDetached = false
-            dismissWindow(id: "shader-preview")
-        } else {
-            previewState.isDetached = true
-            openWindow(id: "shader-preview")
-        }
     }
 
     // MARK: - Find/Replace

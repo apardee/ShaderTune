@@ -17,14 +17,6 @@ struct OpenFileActionKey: FocusedValueKey {
     typealias Value = () -> Void
 }
 
-struct DetachPreviewActionKey: FocusedValueKey {
-    typealias Value = () -> Void
-}
-
-struct PreviewDetachedKey: FocusedValueKey {
-    typealias Value = Bool
-}
-
 struct ToggleDiagnosticsActionKey: FocusedValueKey {
     typealias Value = () -> Void
 }
@@ -54,16 +46,6 @@ extension FocusedValues {
     var openFileAction: (() -> Void)? {
         get { self[OpenFileActionKey.self] }
         set { self[OpenFileActionKey.self] = newValue }
-    }
-
-    var detachPreviewAction: (() -> Void)? {
-        get { self[DetachPreviewActionKey.self] }
-        set { self[DetachPreviewActionKey.self] = newValue }
-    }
-
-    var previewDetached: Bool? {
-        get { self[PreviewDetachedKey.self] }
-        set { self[PreviewDetachedKey.self] = newValue }
     }
 
     var toggleDiagnosticsAction: (() -> Void)? {
@@ -97,25 +79,54 @@ extension FocusedValues {
 // MARK: - View Menu Commands
 
 struct ViewMenuCommands: Commands {
-    @FocusedValue(\.detachPreviewAction) var detachPreviewAction
-    @FocusedValue(\.previewDetached) var previewDetached
     @FocusedValue(\.toggleDiagnosticsAction) var toggleDiagnosticsAction
     @FocusedValue(\.diagnosticsVisible) var diagnosticsVisible
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
-            Button(previewDetached == true ? "Attach Preview" : "Detach Preview") {
-                detachPreviewAction?()
-            }
-            .keyboardShortcut("d", modifiers: [.command, .shift])
-
-            Divider()
-
             Button(diagnosticsVisible == true ? "Hide Diagnostics" : "Show Diagnostics") {
                 toggleDiagnosticsAction?()
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
         }
+    }
+}
+
+// MARK: - Window Menu Commands
+
+struct WindowMenuCommands: Commands {
+    var previewState: PreviewState
+
+    var body: some Commands {
+        CommandGroup(before: .windowList) {
+            DetachPreviewMenuItem(previewState: previewState)
+        }
+    }
+}
+
+/// Extracted into a View so @Observable tracking and @Environment work correctly
+private struct DetachPreviewMenuItem: View {
+    var previewState: PreviewState
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        Button {
+            if previewState.isDetached {
+                previewState.isDetached = false
+                dismissWindow(id: "shader-preview")
+            } else {
+                previewState.isDetached = true
+                openWindow(id: "shader-preview")
+            }
+        } label: {
+            Label(
+                previewState.isDetached ? "Attach Preview" : "Detach Preview",
+                systemImage: previewState.isDetached
+                    ? "rectangle.inset.filled" : "macwindow.on.rectangle"
+            )
+        }
+        .keyboardShortcut("d", modifiers: [.command, .shift])
     }
 }
 
