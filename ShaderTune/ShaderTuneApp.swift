@@ -19,6 +19,7 @@ struct ShaderTuneApp: App {
         }
         .commands {
             FileMenuCommands()
+            BuildMenuCommands()
             ViewMenuCommands()
             WindowMenuCommands(previewState: previewState)
         }

@@ -34,6 +34,7 @@ struct ContentView: View {
     private static let defaultShader = ""
 
     @Environment(PreviewState.self) private var previewState
+    @Environment(\.openWindow) private var openWindow
 
     @State private var compiler: MetalCompilerService
     @State private var shaderSource = ContentView.defaultShader
@@ -171,12 +172,12 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder
-    private var detailPane: some View {
-        if !previewState.isDetached {
-            PreviewWindowContent()
-        }
-    }
+    @State private var isHoveringPreview = false
+    @State private var previewWidth: CGFloat = 320
+    @State private var dragStartWidth: CGFloat?
+    @State private var dragStartLocation: CGPoint?
+    private let previewMinWidth: CGFloat = 160
+    private let previewMaxWidth: CGFloat = 640
 
     var body: some View {
         mainLayout
@@ -202,9 +203,12 @@ struct ContentView: View {
             },
             content: {
                 contentPane
-            },
-            detail: {
-                detailPane
+                    .overlay(alignment: .bottomTrailing) {
+                        if !previewState.isDetached {
+                            previewInset
+                                .padding(24)
+                        }
+                    }
             },
             bottom: {
                 DiagnosticsPane(
@@ -219,6 +223,111 @@ struct ContentView: View {
                 )
             }
         )
+    }
+
+    @ViewBuilder
+    private var previewInset: some View {
+        let previewHeight = previewWidth * 3 / 4
+        PreviewWindowContent()
+            .frame(width: previewWidth, height: previewHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(alignment: .topTrailing) {
+                if isHoveringPreview {
+                    Button {
+                        previewState.isDetached = true
+                        openPreviewWindow()
+                    } label: {
+                        Image(systemName: "macwindow.on.rectangle")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(5)
+                            .background(.black.opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(6)
+                    .transition(.opacity)
+                }
+            }
+            .overlay(alignment: .leading) {
+                previewResizeHandle(edge: .leading, horizontal: true)
+            }
+            .overlay(alignment: .top) {
+                previewResizeHandle(edge: .top, horizontal: false)
+            }
+            .overlay(alignment: .topLeading) {
+                previewResizeCorner
+            }
+            .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 2)
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHoveringPreview = hovering
+                }
+            }
+    }
+
+    private func previewResizeHandle(edge: Edge, horizontal: Bool) -> some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: horizontal ? 6 : nil, height: horizontal ? nil : 6)
+            .contentShape(Rectangle())
+            .cursor(horizontal ? .resizeLeftRight : .resizeUpDown)
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        if dragStartWidth == nil {
+                            dragStartWidth = previewWidth
+                            dragStartLocation = value.startLocation
+                        }
+                        guard let startWidth = dragStartWidth,
+                            let startLoc = dragStartLocation
+                        else { return }
+                        let delta =
+                            horizontal
+                            ? -(value.location.x - startLoc.x)
+                            : -(value.location.y - startLoc.y)
+                        let aspect: CGFloat = horizontal ? 1.0 : 4.0 / 3.0
+                        previewWidth = (startWidth + delta * aspect)
+                            .clamped(to: previewMinWidth...previewMaxWidth)
+                    }
+                    .onEnded { _ in
+                        dragStartWidth = nil
+                        dragStartLocation = nil
+                    }
+            )
+    }
+
+    private var previewResizeCorner: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 10, height: 10)
+            .contentShape(Rectangle())
+            .cursor(.crosshair)
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        if dragStartWidth == nil {
+                            dragStartWidth = previewWidth
+                            dragStartLocation = value.startLocation
+                        }
+                        guard let startWidth = dragStartWidth,
+                            let startLoc = dragStartLocation
+                        else { return }
+                        let dx = -(value.location.x - startLoc.x)
+                        let dy = -(value.location.y - startLoc.y)
+                        let delta = max(dx, dy)
+                        previewWidth = (startWidth + delta)
+                            .clamped(to: previewMinWidth...previewMaxWidth)
+                    }
+                    .onEnded { _ in
+                        dragStartWidth = nil
+                        dragStartLocation = nil
+                    }
+            )
+    }
+
+    private func openPreviewWindow() {
+        openWindow(id: "shader-preview")
     }
 
     private var withKeyBindings: some View {
@@ -247,19 +356,10 @@ struct ContentView: View {
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
-                Toggle("Auto-compile", isOn: $autoCompile)
-                    .toggleStyle(.switch)
-                    .tint(AppTheme.accent)
-                    .help("Automatically compile shader as you type")
                 if compiler.isCompiling {
                     ProgressView()
                         .scaleEffect(0.8)
                 }
-                Button("Compile") {
-                    compileNow()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(compiler.isCompiling)
             }
         }
         .onKeyPress("f", phases: .down) { keyPress in
@@ -307,6 +407,8 @@ struct ContentView: View {
         .focusedSceneValue(\.newFileAction) { newFile() }
         .focusedSceneValue(\.openFileAction) { openFile() }
         .focusedSceneValue(\.toggleDiagnosticsAction) { showDiagnostics.toggle() }
+        .focusedSceneValue(\.compileAction) { compileNow() }
+        .focusedSceneValue(\.autoCompile, $autoCompile)
         .focusedSceneValue(\.diagnosticsVisible, showDiagnostics)
         .focusedSceneValue(\.recentProjects, recentProjects)
         .focusedSceneValue(\.openRecentProjectAction, openRecentProject)
@@ -745,12 +847,46 @@ private struct MainWindowConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
-            view.window?.titleVisibility = .hidden
+            Self.configure(view.window)
         }
         return view
     }
 
-    func updateNSView(_ view: NSView, context: Context) {}
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            Self.configure(view.window)
+        }
+    }
+
+    private static func configure(_ window: NSWindow?) {
+        guard let window else { return }
+        window.titleVisibility = .hidden
+        // Prevent content from extending under the title bar so that
+        // HSplitView dividers don't bleed into the title bar area.
+        window.styleMask.remove(.fullSizeContentView)
+    }
+}
+#endif
+
+// MARK: - Helpers
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+#if os(macOS)
+private extension View {
+    func cursor(_ cursor: NSCursor) -> some View {
+        onHover { hovering in
+            if hovering {
+                cursor.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+    }
 }
 #endif
 

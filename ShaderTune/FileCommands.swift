@@ -37,6 +37,14 @@ struct ClearRecentProjectsActionKey: FocusedValueKey {
     typealias Value = () -> Void
 }
 
+struct CompileActionKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
+struct AutoCompileKey: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
 extension FocusedValues {
     var newFileAction: (() -> Void)? {
         get { self[NewFileActionKey.self] }
@@ -71,6 +79,16 @@ extension FocusedValues {
     var clearRecentProjectsAction: (() -> Void)? {
         get { self[ClearRecentProjectsActionKey.self] }
         set { self[ClearRecentProjectsActionKey.self] = newValue }
+    }
+
+    var compileAction: (() -> Void)? {
+        get { self[CompileActionKey.self] }
+        set { self[CompileActionKey.self] = newValue }
+    }
+
+    var autoCompile: Binding<Bool>? {
+        get { self[AutoCompileKey.self] }
+        set { self[AutoCompileKey.self] = newValue }
     }
 }
 
@@ -127,6 +145,32 @@ private struct DetachPreviewMenuItem: View {
             )
         }
         .keyboardShortcut("d", modifiers: [.command, .shift])
+    }
+}
+
+// MARK: - Build Menu Commands
+
+struct BuildMenuCommands: Commands {
+    @FocusedValue(\.compileAction) var compileAction
+    @FocusedBinding(\.autoCompile) var autoCompile: Bool?
+
+    var body: some Commands {
+        CommandMenu("Build") {
+            Button {
+                compileAction?()
+            } label: {
+                Label("Compile", systemImage: "hammer.fill")
+            }
+            .keyboardShortcut("b", modifiers: .command)
+            .disabled(compileAction == nil)
+
+            Divider()
+
+            Toggle(isOn: Binding(get: { autoCompile ?? false }, set: { autoCompile = $0 })) {
+                Label("Auto-Compile", systemImage: "bolt.fill")
+            }
+            .disabled(autoCompile == nil)
+        }
     }
 }
 
