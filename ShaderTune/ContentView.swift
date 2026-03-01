@@ -328,6 +328,7 @@ struct ContentView: View {
 
     private var mainLayout: some View {
         withAlerts
+            .background(MainWindowConfigurator())
             .onChange(of: currentDiagnostics) { _, newValue in
                 // Auto-show diagnostics pane when there are errors
                 if !newValue.isEmpty && !showDiagnostics {
@@ -738,6 +739,20 @@ struct ContentView: View {
         recentProjects = []
     }
 }
+
+#if os(macOS)
+private struct MainWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            view.window?.titleVisibility = .hidden
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
+}
+#endif
 
 #Preview {
     ContentView()
