@@ -54,7 +54,7 @@ struct ContentView: View {
     @State private var isFileDirty: Bool = false
     /// Snapshot of the file content as last loaded from or saved to disk.
     @State private var savedSource: String = ""
-    @State private var showSidebar: Bool = true
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showDiagnostics: Bool = false
     @State private var recentProjects: [URL] = []
 
@@ -182,24 +182,22 @@ struct ContentView: View {
     }
 
     private var splitView: some View {
-        FlatSplitViewWithBottom(
-            showSidebar: $showSidebar,
-            showBottom: $showDiagnostics,
-            sidebar: {
-                FileNavigatorView(
-                    selectedDirectoryURL: $selectedDirectoryURL,
-                    fileTree: $fileTree,
-                    selectedFileURL: $selectedFileURL,
-                    onSelectFile: handleFileSelection,
-                    currentProject: $currentProject,
-                    selectedPass: $selectedPass,
-                    workspaceProjects: $workspaceProjects,
-                    passDiagnostics: compiler.passDiagnostics,
-                    onSelectPass: handlePassSelection,
-                    onProjectUpdated: handleProjectUpdated
-                )
-            },
-            content: {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            FileNavigatorView(
+                selectedDirectoryURL: $selectedDirectoryURL,
+                fileTree: $fileTree,
+                selectedFileURL: $selectedFileURL,
+                onSelectFile: handleFileSelection,
+                currentProject: $currentProject,
+                selectedPass: $selectedPass,
+                workspaceProjects: $workspaceProjects,
+                passDiagnostics: compiler.passDiagnostics,
+                onSelectPass: handlePassSelection,
+                onProjectUpdated: handleProjectUpdated
+            )
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
+        } detail: {
+            VSplitView {
                 contentPane
                     .overlay(alignment: .bottomTrailing) {
                         if !previewState.isDetached {
@@ -207,20 +205,22 @@ struct ContentView: View {
                                 .padding(24)
                         }
                     }
-            },
-            bottom: {
-                DiagnosticsPane(
-                    diagnostics: currentDiagnostics,
-                    onDismiss: {
-                        showDiagnostics = false
-                    },
-                    onSelectDiagnostic: { diagnostic in
-                        // Jump to line in editor (simplified - would need cursor positioning)
-                        print("Jump to line \(diagnostic.line)")
-                    }
-                )
+                    .frame(minHeight: 300)
+
+                if showDiagnostics {
+                    DiagnosticsPane(
+                        diagnostics: currentDiagnostics,
+                        onDismiss: {
+                            showDiagnostics = false
+                        },
+                        onSelectDiagnostic: { diagnostic in
+                            print("Jump to line \(diagnostic.line)")
+                        }
+                    )
+                    .frame(minHeight: 100, idealHeight: 200, maxHeight: 400)
+                }
             }
-        )
+        }
     }
 
     @ViewBuilder
