@@ -189,6 +189,7 @@ struct ContentView: View {
                 currentProject: $currentProject,
                 onSelectProject: handleProjectSelection,
                 onCreateProject: handleWorkspaceProjectCreated,
+                onRenameProject: handleProjectRenamed,
                 onRemoveProject: handleProjectRemoved
             )
             .navigationSplitViewColumnWidth(min: 160, ideal: 200)
@@ -337,32 +338,27 @@ struct ContentView: View {
         openWindow(id: "shader-preview")
     }
 
+    private var navigationTitle: String {
+        if let project = currentProject, let pass = selectedPass {
+            return "\(project.name) — \(pass.name)"
+        } else if let filename = selectedFileURL?.lastPathComponent {
+            return filename
+        }
+        return "ShaderTune"
+    }
+
     private var withKeyBindings: some View {
         splitView
+            .navigationTitle(navigationTitle)
             #if os(macOS)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                HStack(spacing: 6) {
-                    if isFileDirty {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 7))
-                            .foregroundColor(.orange)
-                            .help("Unsaved changes")
-                    }
-                    if let project = currentProject, let pass = selectedPass {
-                        Image(systemName: pass.isMain ? "display" : "square.stack")
-                            .foregroundStyle(.tint)
-                        Text("\(project.name) / \(pass.name)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    } else if let filename = selectedFileURL?.lastPathComponent {
-                        Text(filename)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
             ToolbarItemGroup(placement: .primaryAction) {
+                if isFileDirty {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 7))
+                        .foregroundColor(.orange)
+                        .help("Unsaved changes")
+                }
                 if compiler.isCompiling {
                     ProgressView()
                         .scaleEffect(0.8)
@@ -437,7 +433,6 @@ struct ContentView: View {
 
     private var mainLayout: some View {
         withAlerts
-            .background(MainWindowConfigurator())
             .onChange(of: currentDiagnostics) { _, newValue in
                 // Auto-show diagnostics pane when there are errors
                 if !newValue.isEmpty && !showDiagnostics {
@@ -729,6 +724,45 @@ struct ContentView: View {
         }
     }
 
+    private func handleProjectRenamed(_ project: ShaderProject, _ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        let workspaceURL = project.projectURL.deletingLastPathComponent()
+        let newURL = workspaceURL.appendingPathComponent(trimmed)
+        guard newURL != project.projectURL else { return }
+        guard !FileManager.default.fileExists(atPath: newURL.path) else {
+            fileError = .projectError("A folder named '\(trimmed)' already exists.")
+            showingFileError = true
+            return
+        }
+        do {
+            try FileManager.default.moveItem(at: project.projectURL, to: newURL)
+            let updated = ShaderProject(
+                id: project.id,
+                version: project.version,
+                name: trimmed,
+                mainPass: project.mainPass,
+                buffers: project.buffers,
+                projectURL: newURL
+            )
+            try ProjectConfigService.saveProject(updated)
+            if let idx = workspaceProjects.firstIndex(where: { $0.id == project.id }) {
+                workspaceProjects[idx] = updated
+            }
+            workspaceProjects.sort { $0.name < $1.name }
+            if currentProject?.id == project.id {
+                currentProject = updated
+                if let old = selectedFileURL, old.path.hasPrefix(project.projectURL.path) {
+                    let rel = String(old.path.dropFirst(project.projectURL.path.count))
+                    selectedFileURL = URL(fileURLWithPath: newURL.path + rel)
+                }
+            }
+        } catch {
+            fileError = .projectError(error.localizedDescription)
+            showingFileError = true
+        }
+    }
+
     private func handleProjectRemoved(_ project: ShaderProject) {
         do {
             try FileManager.default.trashItem(at: project.projectURL, resultingItemURL: nil)
@@ -853,27 +887,22 @@ struct ContentView: View {
     }
     #endif
 
-    private func createNewProject(at projectURL: URL, named projectName: String) {
+    /// Creates a workspace directory at `workspaceURL` containing a single project named `projectName`.
+    private func createNewProject(at workspaceURL: URL, named projectName: String) {
+        let projectURL = workspaceURL.appendingPathComponent(projectName)
         do {
             let project = try ProjectConfigService.createProject(name: projectName, at: projectURL)
 
-            // Set as current directory and project
-            selectedDirectoryURL = projectURL
+            selectedDirectoryURL = workspaceURL
             currentProject = project
-            workspaceProjects = []
+            workspaceProjects = [project]
             fileTree = []
 
-            // Compile all passes
             passLibraries = compiler.compileProject(project)
-
-            // Select the main pass
             selectedPass = project.mainPass
-            let fileURL = project.fileURL(for: project.mainPass)
-            loadFile(fileURL)
+            loadFile(project.fileURL(for: project.mainPass))
             syncPreviewState()
-
-            // Add to recent projects
-            addToRecentProjects(projectURL)
+            addToRecentProjects(workspaceURL)
         } catch {
             fileError = .projectError(error.localizedDescription)
             showingFileError = true
@@ -898,32 +927,6 @@ struct ContentView: View {
         recentProjects = []
     }
 }
-
-#if os(macOS)
-private struct MainWindowConfigurator: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            Self.configure(view.window)
-        }
-        return view
-    }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async {
-            Self.configure(view.window)
-        }
-    }
-
-    private static func configure(_ window: NSWindow?) {
-        guard let window else { return }
-        window.titleVisibility = .hidden
-        // Prevent content from extending under the title bar so that
-        // HSplitView dividers don't bleed into the title bar area.
-        window.styleMask.remove(.fullSizeContentView)
-    }
-}
-#endif
 
 // MARK: - Helpers
 

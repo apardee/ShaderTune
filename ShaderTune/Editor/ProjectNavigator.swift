@@ -2,7 +2,7 @@
 //  ProjectNavigator.swift
 //  ShaderTune
 //
-//  Top-level workspace navigator: select, add, and remove projects.
+//  Top-level workspace navigator: select, add, rename, and remove projects.
 //
 
 import SwiftUI
@@ -14,10 +14,12 @@ struct ProjectNavigator: View {
 
     let onSelectProject: (ShaderProject) -> Void
     let onCreateProject: (URL, String) -> Void
+    let onRenameProject: (ShaderProject, String) -> Void
     let onRemoveProject: (ShaderProject) -> Void
 
     @State private var showingNewProjectSheet = false
     @State private var projectToDelete: ShaderProject?
+    @State private var projectToRename: ShaderProject?
 
     private enum Mode {
         case empty, singleProject, workspace, looseFiles
@@ -56,6 +58,14 @@ struct ProjectNavigator: View {
                 )
             }
         }
+        .sheet(item: $projectToRename) { project in
+            RenameProjectSheet(
+                currentName: project.name,
+                existingNames: Set(workspaceProjects.map { $0.name }).subtracting([project.name])
+            ) { newName in
+                onRenameProject(project, newName)
+            }
+        }
     }
 
     // MARK: - Single Project
@@ -90,6 +100,10 @@ struct ProjectNavigator: View {
                     Label(project.name, systemImage: "cube.fill")
                         .tag(project.id)
                         .contextMenu {
+                            Button("Rename...") {
+                                projectToRename = project
+                            }
+                            Divider()
                             Button("Remove Project", role: .destructive) {
                                 projectToDelete = project
                             }
@@ -145,6 +159,71 @@ struct ProjectNavigator: View {
     }
 }
 
+// MARK: - Rename Sheet
+
+private struct RenameProjectSheet: View {
+    let currentName: String
+    let existingNames: Set<String>
+    let onRename: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+
+    init(currentName: String, existingNames: Set<String>, onRename: @escaping (String) -> Void) {
+        self.currentName = currentName
+        self.existingNames = existingNames
+        self.onRename = onRename
+        self._name = State(initialValue: currentName)
+    }
+
+    private var trimmed: String { name.trimmingCharacters(in: .whitespaces) }
+    private var isUnchanged: Bool { trimmed == currentName }
+    private var hasConflict: Bool { existingNames.contains(trimmed) }
+    private var isValid: Bool { !trimmed.isEmpty && !isUnchanged && !hasConflict }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Rename Project")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("New Name:")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                TextField("Project name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+
+                if hasConflict {
+                    Text("A project with this name already exists.")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
+
+            Text("The project folder will be renamed to match.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
+                Button("Rename") {
+                    onRename(trimmed)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!isValid)
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
+    }
+}
+
 // MARK: - New Workspace Project Sheet
 
 private struct NewWorkspaceProjectSheet: View {
@@ -155,20 +234,9 @@ private struct NewWorkspaceProjectSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var projectName = ""
 
-    private var sanitizedName: String {
-        projectName.trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(
-                of: "[^a-zA-Z0-9_-]", with: "_", options: .regularExpression)
-    }
-
-    private var isValid: Bool {
-        let trimmed = projectName.trimmingCharacters(in: .whitespaces)
-        return !trimmed.isEmpty && !existingNames.contains(trimmed)
-    }
-
-    private var nameConflict: Bool {
-        existingNames.contains(projectName.trimmingCharacters(in: .whitespaces))
-    }
+    private var trimmed: String { projectName.trimmingCharacters(in: .whitespaces) }
+    private var isValid: Bool { !trimmed.isEmpty && !existingNames.contains(trimmed) }
+    private var hasConflict: Bool { existingNames.contains(trimmed) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -183,19 +251,19 @@ private struct NewWorkspaceProjectSheet: View {
                 TextField("MyShader", text: $projectName)
                     .textFieldStyle(.roundedBorder)
 
-                if nameConflict {
+                if hasConflict {
                     Text("A project with this name already exists.")
                         .font(.caption)
                         .foregroundColor(.red)
                 }
             }
 
-            if !projectName.trimmingCharacters(in: .whitespaces).isEmpty {
+            if !trimmed.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Will create:")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(parentURL.appendingPathComponent(sanitizedName).path)
+                    Text(parentURL.appendingPathComponent(trimmed).path)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -209,9 +277,7 @@ private struct NewWorkspaceProjectSheet: View {
                     .buttonStyle(.bordered)
                     .keyboardShortcut(.cancelAction)
                 Button("Create") {
-                    let name = projectName.trimmingCharacters(in: .whitespaces)
-                    let url = parentURL.appendingPathComponent(sanitizedName)
-                    onCreate(url, name)
+                    onCreate(parentURL.appendingPathComponent(trimmed), trimmed)
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)

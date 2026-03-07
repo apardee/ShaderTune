@@ -11,26 +11,29 @@ import SwiftUI
 import AppKit
 #endif
 
+/// Sheet for creating a new workspace. The workspace folder is named by the user;
+/// a default project named "ShaderProject" is created inside it automatically.
 struct NewProjectSheet: View {
     let onCreate: (URL, String) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var projectName: String = ""
+    @State private var workspaceName: String = ""
     @State private var parentDirectory: URL?
-    @State private var showingDirectoryPicker = false
+
+    private static let defaultProjectName = "ShaderProject"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New Shader Project")
+            Text("New Project")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Project Name:")
+                Text("Workspace Name:")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                TextField("MyShader", text: $projectName)
+                TextField("MyWorkspace", text: $workspaceName)
                     .textFieldStyle(.roundedBorder)
             }
 
@@ -62,16 +65,21 @@ struct NewProjectSheet: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator))
             }
 
-            if let dir = parentDirectory, !projectName.isEmpty {
+            if let dir = parentDirectory, !workspaceName.trimmingCharacters(in: .whitespaces).isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Will create:")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(dir.appendingPathComponent(sanitizedProjectName).path)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.middle)
+                    Text(
+                        dir
+                            .appendingPathComponent(sanitizedWorkspaceName)
+                            .appendingPathComponent(Self.defaultProjectName)
+                            .path
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
                 }
             }
 
@@ -85,7 +93,7 @@ struct NewProjectSheet: View {
                 .keyboardShortcut(.cancelAction)
 
                 Button("Create") {
-                    createProject()
+                    createWorkspace()
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
@@ -96,18 +104,13 @@ struct NewProjectSheet: View {
         .frame(width: 400)
     }
 
-    private var sanitizedProjectName: String {
-        // Replace spaces and special characters with underscores for folder name
-        let trimmed = projectName.trimmingCharacters(in: .whitespaces)
-        return trimmed.replacingOccurrences(
-            of: "[^a-zA-Z0-9_-]",
-            with: "_",
-            options: .regularExpression
-        )
+    private var sanitizedWorkspaceName: String {
+        workspaceName.trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "[^a-zA-Z0-9_-]", with: "_", options: .regularExpression)
     }
 
     private var isValid: Bool {
-        !projectName.trimmingCharacters(in: .whitespaces).isEmpty && parentDirectory != nil
+        !workspaceName.trimmingCharacters(in: .whitespaces).isEmpty && parentDirectory != nil
     }
 
     #if os(macOS)
@@ -116,7 +119,7 @@ struct NewProjectSheet: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "Select a location to create the project folder"
+        panel.message = "Select a location for the new workspace"
         panel.prompt = "Select"
 
         if panel.runModal() == .OK, let url = panel.url {
@@ -125,14 +128,13 @@ struct NewProjectSheet: View {
     }
     #endif
 
-    private func createProject() {
-        guard let parent = parentDirectory else { return }
+    private func createWorkspace() {
+        guard let parent = parentDirectory,
+            !workspaceName.trimmingCharacters(in: .whitespaces).isEmpty
+        else { return }
 
-        let trimmedName = projectName.trimmingCharacters(in: .whitespaces)
-        guard !trimmedName.isEmpty else { return }
-
-        let projectURL = parent.appendingPathComponent(sanitizedProjectName)
-        onCreate(projectURL, trimmedName)
+        let workspaceURL = parent.appendingPathComponent(sanitizedWorkspaceName)
+        onCreate(workspaceURL, Self.defaultProjectName)
         dismiss()
     }
 }
