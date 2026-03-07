@@ -10,7 +10,7 @@ import SwiftUI
 class PreviewState {
     var mousePosition: CGPoint = .zero
     var compiledLibrary: MTLLibrary?
-    var currentProject: ShaderProject?
+    var currentShader: Shader?
     var passLibraries: [String: MTLLibrary] = [:]
     var isDetached: Bool = false
     var selectedFileURL: URL?

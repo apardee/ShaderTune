@@ -99,7 +99,7 @@ class MetalCompilerService {
     /// Compiles all passes in a project
     /// - Parameter project: The shader project to compile
     /// - Returns: Dictionary of compiled libraries keyed by pass name
-    func compileProject(_ project: ShaderProject) -> [String: MTLLibrary] {
+    func compileShader(_ project: Shader) -> [String: MTLLibrary] {
         isCompiling = true
         diagnostics = []
         passDiagnostics = [:]
@@ -133,7 +133,7 @@ class MetalCompilerService {
         return libraries
     }
 
-    /// Internal compile method that doesn't set isCompiling (for use in compileProject)
+    /// Internal compile method that doesn't set isCompiling (for use in compileShader)
     private func compilePassSource(source: String, passName: String) -> MTLLibrary? {
         let fullSource = Self.uniformsHeader + source
 

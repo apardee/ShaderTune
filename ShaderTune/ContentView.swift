@@ -59,9 +59,9 @@ struct ContentView: View {
     @State private var recentProjects: [URL] = []
 
     // Project mode state
-    @State private var currentProject: ShaderProject?
+    @State private var currentShader: Shader?
     @State private var selectedPass: ShaderPass?
-    @State private var workspaceProjects: [ShaderProject] = []
+    @State private var shaders: [Shader] = []
     @State private var passLibraries: [String: MTLLibrary] = [:]
 
     // New file sheet
@@ -106,7 +106,7 @@ struct ContentView: View {
             }
 
             // Editor with inline error display
-            if selectedFileURL == nil && shaderSource.isEmpty && currentProject == nil {
+            if selectedFileURL == nil && shaderSource.isEmpty && currentShader == nil {
                 // Empty state when no file is selected
                 VStack(spacing: 20) {
                     Spacer()
@@ -185,12 +185,12 @@ struct ContentView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             ProjectNavigator(
                 directoryURL: $selectedDirectoryURL,
-                workspaceProjects: $workspaceProjects,
-                currentProject: $currentProject,
-                onSelectProject: handleProjectSelection,
-                onCreateProject: handleWorkspaceProjectCreated,
-                onRenameProject: handleProjectRenamed,
-                onRemoveProject: handleProjectRemoved
+                shaders: $shaders,
+                currentShader: $currentShader,
+                onSelectShader: handleShaderSelection,
+                onCreateShader: handleShaderCreated,
+                onRenameShader: handleShaderRenamed,
+                onRemoveShader: handleShaderRemoved
             )
             .navigationSplitViewColumnWidth(min: 160, ideal: 200)
         } content: {
@@ -199,11 +199,11 @@ struct ContentView: View {
                 fileTree: $fileTree,
                 selectedFileURL: $selectedFileURL,
                 onSelectFile: handleFileSelection,
-                currentProject: $currentProject,
+                currentShader: $currentShader,
                 selectedPass: $selectedPass,
                 passDiagnostics: compiler.passDiagnostics,
                 onSelectPass: handlePassSelection,
-                onProjectUpdated: handleProjectUpdated
+                onShaderUpdated: handleShaderUpdated
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } detail: {
@@ -339,7 +339,7 @@ struct ContentView: View {
     }
 
     private var navigationTitle: String {
-        if let project = currentProject, let pass = selectedPass {
+        if let project = currentShader, let pass = selectedPass {
             return "\(project.name) — \(pass.name)"
         } else if let filename = selectedFileURL?.lastPathComponent {
             return filename
@@ -499,7 +499,7 @@ struct ContentView: View {
     }
 
     private func compileCurrentSource(_ source: String) {
-        if currentProject != nil, let pass = selectedPass {
+        if currentShader != nil, let pass = selectedPass {
             // Project mode - compile only the current pass
             if let library = compiler.compilePass(source: source, passName: pass.name) {
                 passLibraries[pass.name] = library
@@ -513,7 +513,7 @@ struct ContentView: View {
 
     private func syncPreviewState() {
         previewState.compiledLibrary = compiler.compiledLibrary
-        previewState.currentProject = currentProject
+        previewState.currentShader = currentShader
         previewState.passLibraries = passLibraries
         previewState.selectedFileURL = selectedFileURL
     }
@@ -572,8 +572,8 @@ struct ContentView: View {
 
     private func scanDirectory(_ url: URL) {
         // Reset project state
-        currentProject = nil
-        workspaceProjects = []
+        currentShader = nil
+        shaders = []
         selectedPass = nil
         passLibraries = [:]
         compiler.clearPassState()
@@ -582,30 +582,30 @@ struct ContentView: View {
         let directoryType = WorkspaceService.analyzeDirectory(url)
 
         switch directoryType {
-        case .project(let project):
-            // Single project mode
-            currentProject = project
+        case .shader(let shader):
+            // Single shader mode
+            currentShader = shader
             fileTree = []
 
             // Compile all passes
-            passLibraries = compiler.compileProject(project)
+            passLibraries = compiler.compileShader(shader)
 
             // Select the main pass by default
-            selectedPass = project.mainPass
-            let fileURL = project.fileURL(for: project.mainPass)
+            selectedPass = shader.mainPass
+            let fileURL = shader.fileURL(for: shader.mainPass)
             loadFile(fileURL)
 
-        case .workspace(let projects):
-            // Workspace mode - multiple projects
-            workspaceProjects = projects
+        case .project(let projectShaders):
+            // Project mode - multiple shaders
+            shaders = projectShaders
             fileTree = []
 
-            // Select first project by default
-            if let firstProject = projects.first {
-                currentProject = firstProject
-                passLibraries = compiler.compileProject(firstProject)
-                selectedPass = firstProject.mainPass
-                let fileURL = firstProject.fileURL(for: firstProject.mainPass)
+            // Select first shader by default
+            if let firstShader = projectShaders.first {
+                currentShader = firstShader
+                passLibraries = compiler.compileShader(firstShader)
+                selectedPass = firstShader.mainPass
+                let fileURL = firstShader.fileURL(for: firstShader.mainPass)
                 loadFile(fileURL)
             }
 
@@ -673,7 +673,7 @@ struct ContentView: View {
     }
 
     private func handlePassSelection(_ pass: ShaderPass) {
-        guard let project = currentProject else { return }
+        guard let project = currentShader else { return }
 
         // Save current file if dirty
         if isFileDirty, let currentURL = selectedFileURL {
@@ -686,9 +686,9 @@ struct ContentView: View {
         selectedPass = pass
     }
 
-    private func handleProjectUpdated(_ project: ShaderProject) {
+    private func handleShaderUpdated(_ project: Shader) {
         // Recompile the project when it's updated (e.g., new buffer added)
-        passLibraries = compiler.compileProject(project)
+        passLibraries = compiler.compileShader(project)
 
         // If a new buffer was added, load its file
         if let pass = selectedPass {
@@ -700,31 +700,31 @@ struct ContentView: View {
 
     // MARK: - Workspace Project Management
 
-    private func handleProjectSelection(_ project: ShaderProject) {
+    private func handleShaderSelection(_ project: Shader) {
         if isFileDirty, let url = selectedFileURL {
             saveFile(url)
         }
-        currentProject = project
-        passLibraries = compiler.compileProject(project)
+        currentShader = project
+        passLibraries = compiler.compileShader(project)
         selectedPass = project.mainPass
         let fileURL = project.fileURL(for: project.mainPass)
         loadFile(fileURL)
         syncPreviewState()
     }
 
-    private func handleWorkspaceProjectCreated(_ url: URL, _ name: String) {
+    private func handleShaderCreated(_ url: URL, _ name: String) {
         do {
-            let project = try ProjectConfigService.createProject(name: name, at: url)
-            workspaceProjects.append(project)
-            workspaceProjects.sort { $0.name < $1.name }
-            handleProjectSelection(project)
+            let project = try ProjectConfigService.createShader(name: name, at: url)
+            shaders.append(project)
+            shaders.sort { $0.name < $1.name }
+            handleShaderSelection(project)
         } catch {
             fileError = .projectError(error.localizedDescription)
             showingFileError = true
         }
     }
 
-    private func handleProjectRenamed(_ project: ShaderProject, _ newName: String) {
+    private func handleShaderRenamed(_ project: Shader, _ newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         let workspaceURL = project.projectURL.deletingLastPathComponent()
@@ -737,7 +737,7 @@ struct ContentView: View {
         }
         do {
             try FileManager.default.moveItem(at: project.projectURL, to: newURL)
-            let updated = ShaderProject(
+            let updated = Shader(
                 id: project.id,
                 version: project.version,
                 name: trimmed,
@@ -745,13 +745,13 @@ struct ContentView: View {
                 buffers: project.buffers,
                 projectURL: newURL
             )
-            try ProjectConfigService.saveProject(updated)
-            if let idx = workspaceProjects.firstIndex(where: { $0.id == project.id }) {
-                workspaceProjects[idx] = updated
+            try ProjectConfigService.saveShader(updated)
+            if let idx = shaders.firstIndex(where: { $0.id == project.id }) {
+                shaders[idx] = updated
             }
-            workspaceProjects.sort { $0.name < $1.name }
-            if currentProject?.id == project.id {
-                currentProject = updated
+            shaders.sort { $0.name < $1.name }
+            if currentShader?.id == project.id {
+                currentShader = updated
                 if let old = selectedFileURL, old.path.hasPrefix(project.projectURL.path) {
                     let rel = String(old.path.dropFirst(project.projectURL.path.count))
                     selectedFileURL = URL(fileURLWithPath: newURL.path + rel)
@@ -763,16 +763,16 @@ struct ContentView: View {
         }
     }
 
-    private func handleProjectRemoved(_ project: ShaderProject) {
+    private func handleShaderRemoved(_ project: Shader) {
         do {
             try FileManager.default.trashItem(at: project.projectURL, resultingItemURL: nil)
-            workspaceProjects.removeAll { $0.id == project.id }
+            shaders.removeAll { $0.id == project.id }
             compiler.clearPassState()
-            if currentProject?.id == project.id {
-                if let first = workspaceProjects.first {
-                    handleProjectSelection(first)
+            if currentShader?.id == project.id {
+                if let first = shaders.first {
+                    handleShaderSelection(first)
                 } else {
-                    currentProject = nil
+                    currentShader = nil
                     selectedPass = nil
                     selectedFileURL = nil
                     shaderSource = ""
@@ -820,7 +820,7 @@ struct ContentView: View {
                 } catch {
                     // File may have been deleted or be temporarily unreadable
                 }
-            } else if let project = currentProject {
+            } else if let project = currentShader {
                 // A different pass in the project changed — recompile it
                 for pass in project.buffers where project.fileURL(for: pass) == url {
                     do {
@@ -877,9 +877,9 @@ struct ContentView: View {
             selectedDirectoryURL = directoryURL
             scanDirectory(directoryURL)
 
-            // Add to recent projects if it's a project directory
-            if ProjectConfigService.isProjectDirectory(directoryURL)
-                || ProjectConfigService.isWorkspaceDirectory(directoryURL)
+            // Add to recent projects if it's a shader or project directory
+            if ProjectConfigService.isShaderDirectory(directoryURL)
+                || ProjectConfigService.isProjectDirectory(directoryURL)
             {
                 addToRecentProjects(directoryURL)
             }
@@ -891,14 +891,14 @@ struct ContentView: View {
     private func createNewProject(at workspaceURL: URL, named projectName: String) {
         let projectURL = workspaceURL.appendingPathComponent(projectName)
         do {
-            let project = try ProjectConfigService.createProject(name: projectName, at: projectURL)
+            let project = try ProjectConfigService.createShader(name: projectName, at: projectURL)
 
             selectedDirectoryURL = workspaceURL
-            currentProject = project
-            workspaceProjects = [project]
+            currentShader = project
+            shaders = [project]
             fileTree = []
 
-            passLibraries = compiler.compileProject(project)
+            passLibraries = compiler.compileShader(project)
             selectedPass = project.mainPass
             loadFile(project.fileURL(for: project.mainPass))
             syncPreviewState()

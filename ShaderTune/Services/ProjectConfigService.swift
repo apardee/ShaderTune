@@ -2,13 +2,13 @@
 //  ProjectConfigService.swift
 //  ShaderTune
 //
-//  Service for loading and saving shader project configurations.
+//  Service for loading and saving shader configurations.
 //
 
 import Foundation
 import Yams
 
-/// Errors that can occur when working with project configurations
+/// Errors that can occur when working with shader configurations
 enum ProjectConfigError: LocalizedError {
     case fileNotFound(URL)
     case parseError(String)
@@ -18,36 +18,31 @@ enum ProjectConfigError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .fileNotFound(let url):
-            return "Project configuration not found: \(url.lastPathComponent)"
+            return "Shader configuration not found: \(url.lastPathComponent)"
         case .parseError(let message):
             return "Failed to parse project.yaml: \(message)"
         case .validationError(let errors):
-            return "Project validation failed:\n" + errors.joined(separator: "\n")
+            return "Shader validation failed:\n" + errors.joined(separator: "\n")
         case .writeError(let message):
             return "Failed to save project.yaml: \(message)"
         }
     }
 }
 
-/// Service for loading and saving shader project configurations
+/// Service for loading and saving shader configurations
 class ProjectConfigService {
-    /// The filename for project configuration
+    /// The filename for shader configuration
     static let configFileName = "project.yaml"
 
-    /// Checks if a directory contains a project configuration
-    /// - Parameter url: The directory URL to check
-    /// - Returns: true if the directory contains a project.yaml file
-    static func isProjectDirectory(_ url: URL) -> Bool {
+    /// Checks if a directory contains a shader configuration
+    static func isShaderDirectory(_ url: URL) -> Bool {
         let configURL = url.appendingPathComponent(configFileName)
         return FileManager.default.fileExists(atPath: configURL.path)
     }
 
-    /// Checks if a directory is a workspace (contains subdirectories with projects)
-    /// - Parameter url: The directory URL to check
-    /// - Returns: true if any immediate subdirectory is a project
-    static func isWorkspaceDirectory(_ url: URL) -> Bool {
-        // If it's already a project, it's not a workspace
-        if isProjectDirectory(url) { return false }
+    /// Checks if a directory is a project (contains subdirectories with shaders)
+    static func isProjectDirectory(_ url: URL) -> Bool {
+        if isShaderDirectory(url) { return false }
 
         let fileManager = FileManager.default
         guard
@@ -64,7 +59,7 @@ class ProjectConfigService {
             var isDirectory: ObjCBool = false
             if fileManager.fileExists(atPath: itemURL.path, isDirectory: &isDirectory),
                 isDirectory.boolValue,
-                isProjectDirectory(itemURL)
+                isShaderDirectory(itemURL)
             {
                 return true
             }
@@ -73,11 +68,8 @@ class ProjectConfigService {
         return false
     }
 
-    /// Loads a project configuration from a directory
-    /// - Parameter url: The project directory URL
-    /// - Returns: The loaded ShaderProject
-    /// - Throws: ProjectConfigError if loading fails
-    static func loadProject(from url: URL) throws -> ShaderProject {
+    /// Loads a shader configuration from a directory
+    static func loadShader(from url: URL) throws -> Shader {
         let configURL = url.appendingPathComponent(configFileName)
 
         guard FileManager.default.fileExists(atPath: configURL.path) else {
@@ -99,22 +91,20 @@ class ProjectConfigService {
             throw ProjectConfigError.parseError(error.localizedDescription)
         }
 
-        let project = convertToProject(config: config, projectURL: url)
+        let shader = convertToShader(config: config, shaderURL: url)
 
-        let validationErrors = project.validate()
+        let validationErrors = shader.validate()
         if !validationErrors.isEmpty {
             throw ProjectConfigError.validationError(validationErrors)
         }
 
-        return project
+        return shader
     }
 
-    /// Saves a project configuration to its directory
-    /// - Parameter project: The project to save
-    /// - Throws: ProjectConfigError if saving fails
-    static func saveProject(_ project: ShaderProject) throws {
-        let configURL = project.projectURL.appendingPathComponent(configFileName)
-        let config = convertToYAMLConfig(project: project)
+    /// Saves a shader configuration to its directory
+    static func saveShader(_ shader: Shader) throws {
+        let configURL = shader.projectURL.appendingPathComponent(configFileName)
+        let config = convertToYAMLConfig(shader: shader)
 
         let yamlString: String
         do {
@@ -132,11 +122,9 @@ class ProjectConfigService {
         }
     }
 
-    /// Finds all projects in a workspace directory
-    /// - Parameter url: The workspace directory URL
-    /// - Returns: Array of loaded projects
-    static func findProjects(in url: URL) -> [ShaderProject] {
-        var projects: [ShaderProject] = []
+    /// Finds all shaders in a project directory
+    static func findShaders(in url: URL) -> [Shader] {
+        var shaders: [Shader] = []
 
         let fileManager = FileManager.default
         guard
@@ -153,31 +141,25 @@ class ProjectConfigService {
             var isDirectory: ObjCBool = false
             if fileManager.fileExists(atPath: itemURL.path, isDirectory: &isDirectory),
                 isDirectory.boolValue,
-                isProjectDirectory(itemURL)
+                isShaderDirectory(itemURL)
             {
-                if let project = try? loadProject(from: itemURL) {
-                    projects.append(project)
+                if let shader = try? loadShader(from: itemURL) {
+                    shaders.append(shader)
                 }
             }
         }
 
-        return projects.sorted { $0.name < $1.name }
+        return shaders.sorted { $0.name < $1.name }
     }
 
-    /// Creates a new project with default configuration
-    /// - Parameters:
-    ///   - name: The project name
-    ///   - url: The project directory URL
-    /// - Returns: The created project
-    static func createProject(name: String, at url: URL) throws -> ShaderProject {
+    /// Creates a new shader with default configuration
+    static func createShader(name: String, at url: URL) throws -> Shader {
         let fileManager = FileManager.default
 
-        // Create directory if it doesn't exist
         if !fileManager.fileExists(atPath: url.path) {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
         }
 
-        // Create default main shader file
         let mainShaderFile = "image.metal"
         let mainShaderURL = url.appendingPathComponent(mainShaderFile)
         let defaultMainShader = """
@@ -199,42 +181,17 @@ class ProjectConfigService {
             """
         try defaultMainShader.write(to: mainShaderURL, atomically: true, encoding: .utf8)
 
-        // Create project
-        let mainPass = ShaderPass(
-            name: "Main",
-            file: mainShaderFile,
-            isMain: true
-        )
-
-        let project = ShaderProject(
-            name: name,
-            mainPass: mainPass,
-            buffers: [],
-            projectURL: url
-        )
-
-        // Save configuration
-        try saveProject(project)
-
-        return project
+        let mainPass = ShaderPass(name: "Main", file: mainShaderFile, isMain: true)
+        let shader = Shader(name: name, mainPass: mainPass, buffers: [], projectURL: url)
+        try saveShader(shader)
+        return shader
     }
 
-    /// Creates a new buffer and adds it to the project
-    /// - Parameters:
-    ///   - project: The project to add the buffer to
-    ///   - name: The buffer name (e.g., "BufferA")
-    ///   - feedback: Whether the buffer can sample its previous frame
-    /// - Returns: The updated project with the new buffer
-    static func addBuffer(
-        to project: ShaderProject,
-        name: String,
-        feedback: Bool = false
-    ) throws -> ShaderProject {
-        // Create buffer filename from name (e.g., "BufferA" -> "buffer_a.metal")
+    /// Creates a new buffer and adds it to the shader
+    static func addBuffer(to shader: Shader, name: String, feedback: Bool = false) throws -> Shader {
         let filename = name.lowercased().replacingOccurrences(of: " ", with: "_") + ".metal"
-        let fileURL = project.projectURL.appendingPathComponent(filename)
+        let fileURL = shader.projectURL.appendingPathComponent(filename)
 
-        // Create the buffer shader file
         let defaultBufferShader = """
             // Uniforms are provided automatically by ShaderTune
             // struct Uniforms {
@@ -264,45 +221,22 @@ class ProjectConfigService {
             """
         try defaultBufferShader.write(to: fileURL, atomically: true, encoding: .utf8)
 
-        // Create the new buffer pass
-        let newBuffer = ShaderPass(
-            name: name,
-            file: filename,
-            feedback: feedback,
-            isMain: false
-        )
-
-        // Create updated project with the new buffer
-        let updatedProject = project.withBuffer(newBuffer)
-
-        // Save the updated project configuration
-        try saveProject(updatedProject)
-
-        return updatedProject
+        let newBuffer = ShaderPass(name: name, file: filename, feedback: feedback, isMain: false)
+        let updated = shader.withBuffer(newBuffer)
+        try saveShader(updated)
+        return updated
     }
 
-    /// Reorders buffers in a project
-    /// - Parameters:
-    ///   - project: The project to modify
-    ///   - newOrder: The new buffer order
-    /// - Returns: The updated project
-    static func reorderBuffers(
-        in project: ShaderProject,
-        newOrder: [ShaderPass]
-    ) throws -> ShaderProject {
-        let updatedProject = project.withReorderedBuffers(newOrder)
-        try saveProject(updatedProject)
-        return updatedProject
+    /// Reorders buffers in a shader
+    static func reorderBuffers(in shader: Shader, newOrder: [ShaderPass]) throws -> Shader {
+        let updated = shader.withReorderedBuffers(newOrder)
+        try saveShader(updated)
+        return updated
     }
 
     // MARK: - Private Helpers
 
-    private static func convertToProject(
-        config: YAMLProjectConfig, projectURL: URL
-    )
-        -> ShaderProject
-    {
-        // Convert main pass
+    private static func convertToShader(config: YAMLProjectConfig, shaderURL: URL) -> Shader {
         let mainInputs =
             config.main.inputs?.map {
                 PassInput(buffer: $0.buffer, binding: $0.binding)
@@ -317,14 +251,12 @@ class ProjectConfigService {
             isMain: true
         )
 
-        // Convert buffer passes
         let buffers =
             config.buffers?.map { buffer -> ShaderPass in
                 let inputs =
                     buffer.inputs?.map {
                         PassInput(buffer: $0.buffer, binding: $0.binding)
                     } ?? []
-
                 return ShaderPass(
                     name: buffer.name,
                     file: buffer.file,
@@ -335,39 +267,36 @@ class ProjectConfigService {
                 )
             } ?? []
 
-        return ShaderProject(
-            version: config.version ?? ShaderProject.currentVersion,
+        return Shader(
+            version: config.version ?? Shader.currentVersion,
             name: config.name,
             mainPass: mainPass,
             buffers: buffers,
-            projectURL: projectURL
+            projectURL: shaderURL
         )
     }
 
-    private static func convertToYAMLConfig(project: ShaderProject) -> YAMLProjectConfig {
-        // Convert main pass
+    private static func convertToYAMLConfig(shader: Shader) -> YAMLProjectConfig {
         let mainInputs: [YAMLPassInput]? =
-            project.mainPass.inputs.isEmpty
+            shader.mainPass.inputs.isEmpty
             ? nil
-            : project.mainPass.inputs.map { YAMLPassInput(buffer: $0.buffer, binding: $0.binding) }
+            : shader.mainPass.inputs.map { YAMLPassInput(buffer: $0.buffer, binding: $0.binding) }
 
         let mainConfig = YAMLMainPass(
-            file: project.mainPass.file,
-            function: project.mainPass.function == "fragmentFunc"
-                ? nil : project.mainPass.function,
+            file: shader.mainPass.file,
+            function: shader.mainPass.function == "fragmentFunc"
+                ? nil : shader.mainPass.function,
             inputs: mainInputs
         )
 
-        // Convert buffer passes
         let buffers: [YAMLBufferPass]? =
-            project.buffers.isEmpty
+            shader.buffers.isEmpty
             ? nil
-            : project.buffers.map { buffer in
+            : shader.buffers.map { buffer in
                 let inputs: [YAMLPassInput]? =
                     buffer.inputs.isEmpty
                     ? nil
                     : buffer.inputs.map { YAMLPassInput(buffer: $0.buffer, binding: $0.binding) }
-
                 return YAMLBufferPass(
                     name: buffer.name,
                     file: buffer.file,
@@ -378,8 +307,8 @@ class ProjectConfigService {
             }
 
         return YAMLProjectConfig(
-            version: project.version,
-            name: project.name,
+            version: shader.version,
+            name: shader.name,
             main: mainConfig,
             buffers: buffers
         )

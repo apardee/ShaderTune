@@ -9,17 +9,17 @@ import SwiftUI
 
 struct ProjectNavigator: View {
     @Binding var directoryURL: URL?
-    @Binding var workspaceProjects: [ShaderProject]
-    @Binding var currentProject: ShaderProject?
+    @Binding var shaders: [Shader]
+    @Binding var currentShader: Shader?
 
-    let onSelectProject: (ShaderProject) -> Void
-    let onCreateProject: (URL, String) -> Void
-    let onRenameProject: (ShaderProject, String) -> Void
-    let onRemoveProject: (ShaderProject) -> Void
+    let onSelectShader: (Shader) -> Void
+    let onCreateShader: (URL, String) -> Void
+    let onRenameShader: (Shader, String) -> Void
+    let onRemoveShader: (Shader) -> Void
 
     @State private var showingNewProjectSheet = false
-    @State private var projectToDelete: ShaderProject?
-    @State private var projectToRename: ShaderProject?
+    @State private var shaderToDelete: Shader?
+    @State private var shaderToRename: Shader?
 
     private enum Mode {
         case empty, singleProject, workspace, looseFiles
@@ -27,8 +27,8 @@ struct ProjectNavigator: View {
 
     private var mode: Mode {
         guard directoryURL != nil else { return .empty }
-        if !workspaceProjects.isEmpty { return .workspace }
-        if currentProject != nil { return .singleProject }
+        if !shaders.isEmpty { return .workspace }
+        if currentShader != nil { return .singleProject }
         return .looseFiles
     }
 
@@ -53,17 +53,17 @@ struct ProjectNavigator: View {
             if let workspaceURL = directoryURL {
                 NewWorkspaceProjectSheet(
                     parentURL: workspaceURL,
-                    existingNames: Set(workspaceProjects.map { $0.name }),
-                    onCreate: onCreateProject
+                    existingNames: Set(shaders.map { $0.name }),
+                    onCreate: onCreateShader
                 )
             }
         }
-        .sheet(item: $projectToRename) { project in
+        .sheet(item: $shaderToRename) { project in
             RenameProjectSheet(
                 currentName: project.name,
-                existingNames: Set(workspaceProjects.map { $0.name }).subtracting([project.name])
+                existingNames: Set(shaders.map { $0.name }).subtracting([project.name])
             ) { newName in
-                onRenameProject(project, newName)
+                onRenameShader(project, newName)
             }
         }
     }
@@ -72,8 +72,8 @@ struct ProjectNavigator: View {
 
     private var singleProjectView: some View {
         List {
-            if let project = currentProject {
-                Section(directoryURL?.lastPathComponent ?? "Project") {
+            if let project = currentShader {
+                Section(directoryURL?.lastPathComponent ?? "Shader") {
                     Label(project.name, systemImage: "cube.fill")
                         .foregroundStyle(.tint)
                 }
@@ -87,25 +87,25 @@ struct ProjectNavigator: View {
     private var workspaceView: some View {
         List(
             selection: Binding(
-                get: { currentProject?.id },
+                get: { currentShader?.id },
                 set: { id in
-                    if let project = workspaceProjects.first(where: { $0.id == id }) {
-                        onSelectProject(project)
+                    if let project = shaders.first(where: { $0.id == id }) {
+                        onSelectShader(project)
                     }
                 }
             )
         ) {
-            Section(directoryURL?.lastPathComponent ?? "Workspace") {
-                ForEach(workspaceProjects) { project in
+            Section(directoryURL?.lastPathComponent ?? "Project") {
+                ForEach(shaders) { project in
                     Label(project.name, systemImage: "cube.fill")
                         .tag(project.id)
                         .contextMenu {
                             Button("Rename...") {
-                                projectToRename = project
+                                shaderToRename = project
                             }
                             Divider()
-                            Button("Remove Project", role: .destructive) {
-                                projectToDelete = project
+                            Button("Remove Shader", role: .destructive) {
+                                shaderToDelete = project
                             }
                         }
                 }
@@ -117,7 +117,7 @@ struct ProjectNavigator: View {
                 Button {
                     showingNewProjectSheet = true
                 } label: {
-                    Label("New Project", systemImage: "plus")
+                    Label("New Shader", systemImage: "plus")
                         .font(.caption)
                 }
                 .buttonStyle(.borderless)
@@ -128,19 +128,19 @@ struct ProjectNavigator: View {
             .background(.bar)
         }
         .confirmationDialog(
-            "Remove \"\(projectToDelete?.name ?? "")\"",
+            "Remove Shader \"\(shaderToDelete?.name ?? "")\"",
             isPresented: Binding(
-                get: { projectToDelete != nil },
-                set: { if !$0 { projectToDelete = nil } }
+                get: { shaderToDelete != nil },
+                set: { if !$0 { shaderToDelete = nil } }
             ),
-            presenting: projectToDelete
+            presenting: shaderToDelete
         ) { project in
             Button("Move to Trash", role: .destructive) {
-                onRemoveProject(project)
-                projectToDelete = nil
+                onRemoveShader(project)
+                shaderToDelete = nil
             }
         } message: { _ in
-            Text("The project folder and all its contents will be moved to the Trash.")
+            Text("The shader folder and all its contents will be moved to the Trash.")
         }
     }
 
@@ -183,7 +183,7 @@ private struct RenameProjectSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Rename Project")
+            Text("Rename Shader")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 6) {
@@ -191,17 +191,17 @@ private struct RenameProjectSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                TextField("Project name", text: $name)
+                TextField("Shader name", text: $name)
                     .textFieldStyle(.roundedBorder)
 
                 if hasConflict {
-                    Text("A project with this name already exists.")
+                    Text("A shader with this name already exists.")
                         .font(.caption)
                         .foregroundColor(.red)
                 }
             }
 
-            Text("The project folder will be renamed to match.")
+            Text("The shader folder will be renamed to match.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -240,11 +240,11 @@ private struct NewWorkspaceProjectSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New Project")
+            Text("New Shader")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Project Name:")
+                Text("Shader Name:")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -252,7 +252,7 @@ private struct NewWorkspaceProjectSheet: View {
                     .textFieldStyle(.roundedBorder)
 
                 if hasConflict {
-                    Text("A project with this name already exists.")
+                    Text("A shader with this name already exists.")
                         .font(.caption)
                         .foregroundColor(.red)
                 }

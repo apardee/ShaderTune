@@ -2,7 +2,7 @@
 //  ShaderProject.swift
 //  ShaderTune
 //
-//  Multi-pass shader project model for ShaderToy-style buffer rendering.
+//  Multi-pass shader model.
 //
 
 import Foundation
@@ -57,17 +57,17 @@ struct ShaderPass: Identifiable, Equatable, Hashable {
     }
 }
 
-/// Represents a shader project with multi-pass rendering support
-struct ShaderProject: Identifiable, Equatable {
-    /// Current project format version
+/// Represents an individual shader with multi-pass rendering support
+struct Shader: Identifiable, Equatable {
+    /// Current shader format version
     static let currentVersion = "0.1.0"
 
     let id: UUID
 
-    /// Project format version
+    /// Shader format version
     let version: String
 
-    /// Project name
+    /// Shader name
     let name: String
 
     /// The main output pass
@@ -76,12 +76,12 @@ struct ShaderProject: Identifiable, Equatable {
     /// Buffer passes (render to textures)
     var buffers: [ShaderPass]
 
-    /// URL to the project directory
+    /// URL to the shader directory
     let projectURL: URL
 
     init(
         id: UUID = UUID(),
-        version: String = ShaderProject.currentVersion,
+        version: String = Shader.currentVersion,
         name: String,
         mainPass: ShaderPass,
         buffers: [ShaderPass],
@@ -95,9 +95,9 @@ struct ShaderProject: Identifiable, Equatable {
         self.projectURL = projectURL
     }
 
-    /// Returns a new project with reordered buffers
-    func withReorderedBuffers(_ newBuffers: [ShaderPass]) -> ShaderProject {
-        ShaderProject(
+    /// Returns a new shader with reordered buffers
+    func withReorderedBuffers(_ newBuffers: [ShaderPass]) -> Shader {
+        Shader(
             id: id,
             version: version,
             name: name,
@@ -107,9 +107,9 @@ struct ShaderProject: Identifiable, Equatable {
         )
     }
 
-    /// Returns a new project with an additional buffer
-    func withBuffer(_ buffer: ShaderPass) -> ShaderProject {
-        ShaderProject(
+    /// Returns a new shader with an additional buffer
+    func withBuffer(_ buffer: ShaderPass) -> Shader {
+        Shader(
             id: id,
             version: version,
             name: name,
@@ -119,7 +119,7 @@ struct ShaderProject: Identifiable, Equatable {
         )
     }
 
-    /// All passes in the project (buffers + main)
+    /// All passes in the shader (buffers + main)
     var allPasses: [ShaderPass] {
         buffers + [mainPass]
     }
@@ -136,7 +136,6 @@ struct ShaderProject: Identifiable, Equatable {
     }
 
     /// Returns passes in topological order (dependencies before dependents)
-    /// This ensures buffers are rendered before passes that sample them
     func passesInRenderOrder() -> [ShaderPass] {
         var result: [ShaderPass] = []
         var visited: Set<String> = []
@@ -144,39 +143,28 @@ struct ShaderProject: Identifiable, Equatable {
         func visit(_ pass: ShaderPass) {
             guard !visited.contains(pass.name) else { return }
             visited.insert(pass.name)
-
-            // Visit dependencies first
             for input in pass.inputs {
                 if let dependency = buffers.first(where: { $0.name == input.buffer }) {
                     visit(dependency)
                 }
             }
-
             result.append(pass)
         }
 
-        // Visit all buffers first
-        for buffer in buffers {
-            visit(buffer)
-        }
-
-        // Main pass last
+        for buffer in buffers { visit(buffer) }
         visit(mainPass)
-
         return result
     }
 
-    /// Validates the project configuration
+    /// Validates the shader configuration
     func validate() -> [String] {
         var errors: [String] = []
 
-        // Check main pass file exists
         let mainFileURL = fileURL(for: mainPass)
         if !FileManager.default.fileExists(atPath: mainFileURL.path) {
             errors.append("Main shader file not found: \(mainPass.file)")
         }
 
-        // Check buffer files exist
         for buffer in buffers {
             let bufferFileURL = fileURL(for: buffer)
             if !FileManager.default.fileExists(atPath: bufferFileURL.path) {
@@ -184,30 +172,27 @@ struct ShaderProject: Identifiable, Equatable {
             }
         }
 
-        // Check for duplicate buffer names
         let bufferNames = buffers.map { $0.name }
         let uniqueNames = Set(bufferNames)
         if bufferNames.count != uniqueNames.count {
             errors.append("Duplicate buffer names found")
         }
 
-        // Check for invalid input references
         let validBufferNames = Set(bufferNames)
         for pass in allPasses {
             for input in pass.inputs {
                 if !validBufferNames.contains(input.buffer) {
                     errors.append(
-                        "Pass '\(pass.name)' references unknown buffer '\(input.buffer)'")
+                        "Pass '\(pass.name)' references unknown buffer '\(input.buffer)'"
+                    )
                 }
             }
         }
 
-        // Check for circular dependencies (excluding self-feedback which is allowed)
         if hasCyclicDependency() {
             errors.append("Circular dependency detected between buffers")
         }
 
-        // Check binding indices are valid (0-6 for buffers, 7 reserved for feedback)
         for pass in allPasses {
             for input in pass.inputs {
                 if input.binding < 0 || input.binding > 6 {
@@ -221,7 +206,6 @@ struct ShaderProject: Identifiable, Equatable {
         return errors
     }
 
-    /// Checks for cyclic dependencies (excluding self-feedback)
     private func hasCyclicDependency() -> Bool {
         var visiting: Set<String> = []
         var visited: Set<String> = []
@@ -229,39 +213,30 @@ struct ShaderProject: Identifiable, Equatable {
         func hasCycle(_ passName: String) -> Bool {
             if visiting.contains(passName) { return true }
             if visited.contains(passName) { return false }
-
             visiting.insert(passName)
-
             if let pass = pass(named: passName) {
                 for input in pass.inputs {
-                    // Skip self-references (allowed for feedback)
                     if input.buffer == passName { continue }
                     if hasCycle(input.buffer) { return true }
                 }
             }
-
             visiting.remove(passName)
             visited.insert(passName)
             return false
         }
 
-        for buffer in buffers where hasCycle(buffer.name) {
-            return true
-        }
-
+        for buffer in buffers where hasCycle(buffer.name) { return true }
         return false
     }
 }
 
 // MARK: - YAML Configuration Structures
 
-/// YAML representation of a pass input
 struct YAMLPassInput: Codable {
     let buffer: String
     let binding: Int
 }
 
-/// YAML representation of a buffer pass
 struct YAMLBufferPass: Codable {
     let name: String
     let file: String
@@ -270,14 +245,12 @@ struct YAMLBufferPass: Codable {
     let feedback: Bool?
 }
 
-/// YAML representation of the main pass
 struct YAMLMainPass: Codable {
     let file: String
     let function: String?
     let inputs: [YAMLPassInput]?
 }
 
-/// YAML representation of a project configuration
 struct YAMLProjectConfig: Codable {
     let version: String?
     let name: String
@@ -289,11 +262,11 @@ struct YAMLProjectConfig: Codable {
 
 /// Represents the type of directory structure detected
 enum DirectoryType: Equatable {
-    /// A project directory (contains project.yaml)
-    case project(ShaderProject)
+    /// A shader directory (contains project.yaml)
+    case shader(Shader)
 
-    /// A workspace containing multiple projects
-    case workspace([ShaderProject])
+    /// A project containing multiple shaders
+    case project([Shader])
 
     /// Loose files (no project.yaml found)
     case looseFiles

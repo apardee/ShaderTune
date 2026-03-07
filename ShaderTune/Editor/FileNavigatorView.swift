@@ -26,11 +26,11 @@ struct FileNavigatorView: View {
 
     let onSelectFile: (URL) -> Void
 
-    @Binding var currentProject: ShaderProject?
+    @Binding var currentShader: Shader?
     @Binding var selectedPass: ShaderPass?
     let passDiagnostics: [String: [CompilationDiagnostic]]
     let onSelectPass: (ShaderPass) -> Void
-    let onProjectUpdated: (ShaderProject) -> Void
+    let onShaderUpdated: (Shader) -> Void
 
     @State private var isRootExpanded: Bool = true
 
@@ -39,21 +39,21 @@ struct FileNavigatorView: View {
         fileTree: Binding<[FileNode]>,
         selectedFileURL: Binding<URL?>,
         onSelectFile: @escaping (URL) -> Void,
-        currentProject: Binding<ShaderProject?> = .constant(nil),
+        currentShader: Binding<Shader?> = .constant(nil),
         selectedPass: Binding<ShaderPass?> = .constant(nil),
         passDiagnostics: [String: [CompilationDiagnostic]] = [:],
         onSelectPass: @escaping (ShaderPass) -> Void = { _ in },
-        onProjectUpdated: @escaping (ShaderProject) -> Void = { _ in }
+        onShaderUpdated: @escaping (Shader) -> Void = { _ in }
     ) {
         self._selectedDirectoryURL = selectedDirectoryURL
         self._fileTree = fileTree
         self._selectedFileURL = selectedFileURL
         self.onSelectFile = onSelectFile
-        self._currentProject = currentProject
+        self._currentShader = currentShader
         self._selectedPass = selectedPass
         self.passDiagnostics = passDiagnostics
         self.onSelectPass = onSelectPass
-        self.onProjectUpdated = onProjectUpdated
+        self.onShaderUpdated = onShaderUpdated
     }
 
     var body: some View {
@@ -63,12 +63,12 @@ struct FileNavigatorView: View {
                 systemImage: "folder.badge.questionmark",
                 description: Text("Use File → Open (Cmd+O)")
             )
-        } else if currentProject != nil {
+        } else if currentShader != nil {
             ProjectNavigatorView(
-                project: $currentProject.unwrap()!,
+                project: $currentShader.unwrap()!,
                 selectedPass: $selectedPass,
                 passDiagnostics: passDiagnostics,
-                onProjectUpdated: onProjectUpdated
+                onShaderUpdated: onShaderUpdated
             )
             .onChange(of: selectedPass) { _, newPass in
                 if let pass = newPass {

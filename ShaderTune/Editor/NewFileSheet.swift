@@ -11,8 +11,8 @@ import SwiftUI
 import AppKit
 #endif
 
-/// Sheet for creating a new workspace. The workspace folder is named by the user;
-/// a default project named "ShaderProject" is created inside it automatically.
+/// Sheet for creating a new project. The project folder is named by the user;
+/// a default shader named "ShaderProject" is created inside it automatically.
 struct NewProjectSheet: View {
     let onCreate: (URL, String) -> Void
 
@@ -29,11 +29,11 @@ struct NewProjectSheet: View {
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Workspace Name:")
+                Text("Project Name:")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                TextField("MyWorkspace", text: $workspaceName)
+                TextField("MyProject", text: $workspaceName)
                     .textFieldStyle(.roundedBorder)
             }
 
@@ -119,7 +119,7 @@ struct NewProjectSheet: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "Select a location for the new workspace"
+        panel.message = "Select a location for the new project"
         panel.prompt = "Select"
 
         if panel.runModal() == .OK, let url = panel.url {

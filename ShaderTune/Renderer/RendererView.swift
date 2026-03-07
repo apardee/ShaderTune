@@ -7,13 +7,13 @@ struct RendererView: NSViewRepresentable {
     @Binding var compiledLibrary: MTLLibrary?
 
     // Multi-pass project support
-    @Binding var project: ShaderProject?
+    @Binding var project: Shader?
     @Binding var passLibraries: [String: MTLLibrary]
 
     init(
         mousePosition: Binding<CGPoint>,
         compiledLibrary: Binding<MTLLibrary?>,
-        project: Binding<ShaderProject?> = .constant(nil),
+        project: Binding<Shader?> = .constant(nil),
         passLibraries: Binding<[String: MTLLibrary]> = .constant([:])
     ) {
         self._mousePosition = mousePosition
@@ -45,7 +45,7 @@ struct RendererView: NSViewRepresentable {
             nsView.device = coordinator.multiPassRenderer.device
             nsView.delegate = coordinator.multiPassRenderer
             coordinator.multiPassRenderer.mousePosition = mousePosition
-            coordinator.multiPassRenderer.setProject(project, libraries: passLibraries)
+            coordinator.multiPassRenderer.setShader(project, libraries: passLibraries)
         } else {
             // Single-pass mode
             nsView.device = coordinator.singlePassRenderer.device
@@ -65,13 +65,13 @@ struct RendererView: UIViewRepresentable {
     @Binding var compiledLibrary: MTLLibrary?
 
     // Multi-pass project support
-    @Binding var project: ShaderProject?
+    @Binding var project: Shader?
     @Binding var passLibraries: [String: MTLLibrary]
 
     init(
         mousePosition: Binding<CGPoint>,
         compiledLibrary: Binding<MTLLibrary?>,
-        project: Binding<ShaderProject?> = .constant(nil),
+        project: Binding<Shader?> = .constant(nil),
         passLibraries: Binding<[String: MTLLibrary]> = .constant([:])
     ) {
         self._mousePosition = mousePosition
@@ -103,7 +103,7 @@ struct RendererView: UIViewRepresentable {
             uiView.device = coordinator.multiPassRenderer.device
             uiView.delegate = coordinator.multiPassRenderer
             coordinator.multiPassRenderer.mousePosition = mousePosition
-            coordinator.multiPassRenderer.setProject(project, libraries: passLibraries)
+            coordinator.multiPassRenderer.setShader(project, libraries: passLibraries)
         } else {
             // Single-pass mode
             uiView.device = coordinator.singlePassRenderer.device

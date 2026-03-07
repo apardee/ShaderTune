@@ -10,10 +10,10 @@ import UniformTypeIdentifiers
 
 /// View for navigating shader projects with multi-pass support
 struct ProjectNavigatorView: View {
-    @Binding var project: ShaderProject
+    @Binding var project: Shader
     @Binding var selectedPass: ShaderPass?
     let passDiagnostics: [String: [CompilationDiagnostic]]
-    let onProjectUpdated: (ShaderProject) -> Void
+    let onShaderUpdated: (Shader) -> Void
 
     @State private var isBuffersExpanded: Bool = true
     @State private var isOutputExpanded: Bool = true
@@ -122,7 +122,7 @@ struct ProjectNavigatorView: View {
                 feedback: feedback
             )
             project = updatedProject
-            onProjectUpdated(updatedProject)
+            onShaderUpdated(updatedProject)
 
             // Select the new buffer
             if let newBuffer = updatedProject.buffers.last {
@@ -140,7 +140,7 @@ struct ProjectNavigatorView: View {
                 newOrder: newOrder
             )
             project = updatedProject
-            onProjectUpdated(updatedProject)
+            onShaderUpdated(updatedProject)
         } catch {
             print("Failed to reorder buffers: \(error)")
         }
@@ -353,14 +353,14 @@ struct PassRow: View {
 
 /// View for workspace mode showing multiple projects (kept for reference; workspace navigation is handled by ProjectNavigator)
 private struct WorkspaceNavigatorView: View {
-    @Binding var projects: [ShaderProject]
-    @Binding var selectedProject: ShaderProject?
+    @Binding var projects: [Shader]
+    @Binding var selectedProject: Shader?
     @Binding var selectedPass: ShaderPass?
     let passDiagnostics: [String: [CompilationDiagnostic]]
-    let onProjectUpdated: (ShaderProject) -> Void
+    let onShaderUpdated: (Shader) -> Void
 
     @State private var showingNewBufferSheet: Bool = false
-    @State private var newBufferTargetProject: ShaderProject?
+    @State private var newBufferTargetProject: Shader?
 
     var body: some View {
         List {
@@ -424,7 +424,7 @@ private struct WorkspaceNavigatorView: View {
         }
     }
 
-    private func handleCreateBuffer(in project: ShaderProject, name: String, feedback: Bool) {
+    private func handleCreateBuffer(in project: Shader, name: String, feedback: Bool) {
         do {
             let updatedProject = try ProjectConfigService.addBuffer(
                 to: project,
@@ -438,7 +438,7 @@ private struct WorkspaceNavigatorView: View {
             }
 
             selectedProject = updatedProject
-            onProjectUpdated(updatedProject)
+            onShaderUpdated(updatedProject)
 
             // Select the new buffer
             if let newBuffer = updatedProject.buffers.last {

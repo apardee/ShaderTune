@@ -2,39 +2,32 @@
 //  WorkspaceService.swift
 //  ShaderTune
 //
-//  Service for analyzing directory structures and managing workspaces.
+//  Service for analyzing directory structures and managing projects.
 //
 
 import Foundation
 
 /// Service for analyzing directory structures
 class WorkspaceService {
-    /// Analyzes a directory to determine its type (project, workspace, or loose files)
-    /// - Parameter url: The directory URL to analyze
-    /// - Returns: The detected directory type
+    /// Analyzes a directory to determine its type (shader, project, or loose files)
     static func analyzeDirectory(_ url: URL) -> DirectoryType {
-        // Check if it's a project directory
+        if ProjectConfigService.isShaderDirectory(url) {
+            if let shader = try? ProjectConfigService.loadShader(from: url) {
+                return .shader(shader)
+            }
+        }
+
         if ProjectConfigService.isProjectDirectory(url) {
-            if let project = try? ProjectConfigService.loadProject(from: url) {
-                return .project(project)
+            let shaders = ProjectConfigService.findShaders(in: url)
+            if !shaders.isEmpty {
+                return .project(shaders)
             }
         }
 
-        // Check if it's a workspace (contains project subdirectories)
-        if ProjectConfigService.isWorkspaceDirectory(url) {
-            let projects = ProjectConfigService.findProjects(in: url)
-            if !projects.isEmpty {
-                return .workspace(projects)
-            }
-        }
-
-        // Default to loose files
         return .looseFiles
     }
 
     /// Finds all metal files in a directory (for loose files mode)
-    /// - Parameter url: The directory URL to scan
-    /// - Returns: Array of metal file URLs
     static func findMetalFiles(in url: URL) -> [URL] {
         var metalFiles: [URL] = []
 
@@ -56,79 +49,41 @@ class WorkspaceService {
         return metalFiles.sorted { $0.path < $1.path }
     }
 
-    /// Creates a project from a directory of loose files
-    /// - Parameters:
-    ///   - url: The directory URL
-    ///   - name: The project name
-    ///   - mainFile: The main shader file (relative path)
-    /// - Returns: The created project
-    static func createProjectFromLooseFiles(
+    /// Creates a shader from a directory of loose files
+    static func createShaderFromLooseFiles(
         at url: URL,
         name: String,
         mainFile: String
-    ) throws -> ShaderProject {
-        let mainPass = ShaderPass(
-            name: "Main",
-            file: mainFile,
-            isMain: true
-        )
-
-        let project = ShaderProject(
-            name: name,
-            mainPass: mainPass,
-            buffers: [],
-            projectURL: url
-        )
-
-        try ProjectConfigService.saveProject(project)
-        return project
+    ) throws -> Shader {
+        let mainPass = ShaderPass(name: "Main", file: mainFile, isMain: true)
+        let shader = Shader(name: name, mainPass: mainPass, buffers: [], projectURL: url)
+        try ProjectConfigService.saveShader(shader)
+        return shader
     }
 
-    /// Adds a buffer pass to an existing project
-    /// - Parameters:
-    ///   - project: The project to modify
-    ///   - name: The buffer name
-    ///   - file: The shader file path
-    ///   - feedback: Whether the buffer can sample itself
-    /// - Returns: The updated project
+    /// Adds a buffer pass to an existing shader
     static func addBuffer(
-        to project: ShaderProject,
+        to shader: Shader,
         name: String,
         file: String,
         feedback: Bool = false
-    ) throws -> ShaderProject {
-        let newBuffer = ShaderPass(
-            name: name,
-            file: file,
-            feedback: feedback,
-            isMain: false
+    ) throws -> Shader {
+        let newBuffer = ShaderPass(name: name, file: file, feedback: feedback, isMain: false)
+        let updated = Shader(
+            id: shader.id,
+            name: shader.name,
+            mainPass: shader.mainPass,
+            buffers: shader.buffers + [newBuffer],
+            projectURL: shader.projectURL
         )
-
-        let updatedProject = ShaderProject(
-            id: project.id,
-            name: project.name,
-            mainPass: project.mainPass,
-            buffers: project.buffers + [newBuffer],
-            projectURL: project.projectURL
-        )
-
-        try ProjectConfigService.saveProject(updatedProject)
-        return updatedProject
+        try ProjectConfigService.saveShader(updated)
+        return updated
     }
 
-    /// Removes a buffer pass from an existing project
-    /// - Parameters:
-    ///   - project: The project to modify
-    ///   - bufferName: The name of the buffer to remove
-    /// - Returns: The updated project
-    static func removeBuffer(
-        from project: ShaderProject, named bufferName: String
-    ) throws
-        -> ShaderProject
-    {
-        let updatedBuffers = project.buffers.filter { $0.name != bufferName }
+    /// Removes a buffer pass from an existing shader
+    static func removeBuffer(from shader: Shader, named bufferName: String) throws -> Shader {
+        let updatedBuffers = shader.buffers.filter { $0.name != bufferName }
 
-        // Also remove any references to this buffer from other passes
         let cleanedBuffers = updatedBuffers.map { buffer -> ShaderPass in
             let cleanedInputs = buffer.inputs.filter { $0.buffer != bufferName }
             return ShaderPass(
@@ -142,56 +97,49 @@ class WorkspaceService {
             )
         }
 
-        // Clean main pass inputs too
-        let cleanedMainInputs = project.mainPass.inputs.filter { $0.buffer != bufferName }
+        let cleanedMainInputs = shader.mainPass.inputs.filter { $0.buffer != bufferName }
         let cleanedMainPass = ShaderPass(
-            id: project.mainPass.id,
-            name: project.mainPass.name,
-            file: project.mainPass.file,
-            function: project.mainPass.function,
+            id: shader.mainPass.id,
+            name: shader.mainPass.name,
+            file: shader.mainPass.file,
+            function: shader.mainPass.function,
             inputs: cleanedMainInputs,
-            feedback: project.mainPass.feedback,
-            isMain: project.mainPass.isMain
+            feedback: shader.mainPass.feedback,
+            isMain: shader.mainPass.isMain
         )
 
-        let updatedProject = ShaderProject(
-            id: project.id,
-            name: project.name,
+        let updated = Shader(
+            id: shader.id,
+            name: shader.name,
             mainPass: cleanedMainPass,
             buffers: cleanedBuffers,
-            projectURL: project.projectURL
+            projectURL: shader.projectURL
         )
-
-        try ProjectConfigService.saveProject(updatedProject)
-        return updatedProject
+        try ProjectConfigService.saveShader(updated)
+        return updated
     }
 
     /// Updates a pass's input configuration
-    /// - Parameters:
-    ///   - project: The project to modify
-    ///   - passName: The name of the pass to update
-    ///   - inputs: The new inputs for the pass
-    /// - Returns: The updated project
     static func updatePassInputs(
-        project: ShaderProject,
+        shader: Shader,
         passName: String,
         inputs: [PassInput]
-    ) throws -> ShaderProject {
-        var updatedMainPass = project.mainPass
-        var updatedBuffers = project.buffers
+    ) throws -> Shader {
+        var updatedMainPass = shader.mainPass
+        var updatedBuffers = shader.buffers
 
-        if passName == project.mainPass.name {
+        if passName == shader.mainPass.name {
             updatedMainPass = ShaderPass(
-                id: project.mainPass.id,
-                name: project.mainPass.name,
-                file: project.mainPass.file,
-                function: project.mainPass.function,
+                id: shader.mainPass.id,
+                name: shader.mainPass.name,
+                file: shader.mainPass.file,
+                function: shader.mainPass.function,
                 inputs: inputs,
-                feedback: project.mainPass.feedback,
-                isMain: project.mainPass.isMain
+                feedback: shader.mainPass.feedback,
+                isMain: shader.mainPass.isMain
             )
         } else {
-            updatedBuffers = project.buffers.map { buffer in
+            updatedBuffers = shader.buffers.map { buffer in
                 if buffer.name == passName {
                     return ShaderPass(
                         id: buffer.id,
@@ -207,15 +155,14 @@ class WorkspaceService {
             }
         }
 
-        let updatedProject = ShaderProject(
-            id: project.id,
-            name: project.name,
+        let updated = Shader(
+            id: shader.id,
+            name: shader.name,
             mainPass: updatedMainPass,
             buffers: updatedBuffers,
-            projectURL: project.projectURL
+            projectURL: shader.projectURL
         )
-
-        try ProjectConfigService.saveProject(updatedProject)
-        return updatedProject
+        try ProjectConfigService.saveShader(updated)
+        return updated
     }
 }

@@ -12,11 +12,11 @@ struct PreviewWindowContent: View {
     var body: some View {
         @Bindable var state = previewState
 
-        if state.currentProject != nil && !state.passLibraries.isEmpty {
+        if state.currentShader != nil && !state.passLibraries.isEmpty {
             RendererView(
                 mousePosition: $state.mousePosition,
                 compiledLibrary: $state.compiledLibrary,
-                project: $state.currentProject,
+                project: $state.currentShader,
                 passLibraries: $state.passLibraries
             )
             .onContinuousHover { phase in

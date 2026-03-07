@@ -21,7 +21,7 @@ class MultiPassRenderer: NSObject {
     private let defaultLibrary: MTLLibrary
 
     /// Current project being rendered
-    var project: ShaderProject?
+    var project: Shader?
 
     /// Compiled libraries for each pass (keyed by pass name)
     var passLibraries: [String: MTLLibrary] = [:]
@@ -52,7 +52,7 @@ class MultiPassRenderer: NSObject {
     }
 
     /// Updates the project and rebuilds pipelines
-    func setProject(_ project: ShaderProject?, libraries: [String: MTLLibrary]) {
+    func setShader(_ project: Shader?, libraries: [String: MTLLibrary]) {
         self.project = project
         self.passLibraries = libraries
 
