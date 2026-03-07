@@ -24,38 +24,29 @@ struct NewProjectSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("New Shader Project")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Project Name:")
                     .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
 
                 TextField("MyShader", text: $projectName)
-                    .textFieldStyle(.plain)
-                    .padding(6)
-                    .background(AppTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
-                            .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
-                    )
+                    .textFieldStyle(.roundedBorder)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Location:")
                     .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
 
                 HStack {
                     if let dir = parentDirectory {
                         Text(dir.path)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .foregroundColor(AppTheme.textPrimary)
                     } else {
                         Text("No location selected")
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     }
 
                     Spacer()
@@ -63,25 +54,22 @@ struct NewProjectSheet: View {
                     Button("Choose...") {
                         chooseDirectory()
                     }
-                    .buttonStyle(.flat)
+                    .buttonStyle(.bordered)
                 }
                 .padding(8)
-                .background(AppTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
-                        .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
-                )
+                .background(.background)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator))
             }
 
             if let dir = parentDirectory, !projectName.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Will create:")
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                     Text(dir.appendingPathComponent(sanitizedProjectName).path)
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .truncationMode(.middle)
                 }
@@ -93,20 +81,19 @@ struct NewProjectSheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
-                .buttonStyle(.flat)
+                .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
 
                 Button("Create") {
                     createProject()
                 }
-                .buttonStyle(.flatPrimary)
+                .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!isValid)
             }
         }
         .padding(20)
         .frame(width: 400)
-        .background(AppTheme.bg)
     }
 
     private var sanitizedProjectName: String {

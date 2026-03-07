@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A custom 3-pane horizontal split view using HSplitView with flat styling.
+/// A custom 3-pane horizontal split view.
 struct FlatSplitView<Sidebar: View, Content: View, Detail: View>: View {
     @Binding var showSidebar: Bool
 
@@ -25,16 +25,13 @@ struct FlatSplitView<Sidebar: View, Content: View, Detail: View>: View {
             if showSidebar {
                 sidebar
                     .frame(minWidth: 180, idealWidth: 220)
-                    .background(AppTheme.bg)
             }
 
             content
                 .frame(minWidth: 300, idealWidth: 500)
-                .background(AppTheme.bg)
 
             detail
                 .frame(minWidth: 200, idealWidth: 400)
-                .background(AppTheme.bg)
         }
     }
 }

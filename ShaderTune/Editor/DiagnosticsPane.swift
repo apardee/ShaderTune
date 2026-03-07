@@ -22,29 +22,27 @@ struct DiagnosticsPane: View {
 
                 Text(diagnosticTitle)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(AppTheme.textPrimary)
 
                 Text("(\(diagnostics.count))")
                     .font(.system(size: 12))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
 
                 Spacer()
 
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                         .font(.system(size: 11))
-                        .foregroundColor(AppTheme.textSecondary)
                 }
                 .buttonStyle(.plain)
                 .help("Hide diagnostics")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(AppTheme.bgLight)
+            .background(.bar)
             .overlay(
                 Rectangle()
-                    .frame(height: AppTheme.borderWidth)
-                    .foregroundColor(AppTheme.border),
+                    .frame(height: 1)
+                    .foregroundStyle(.separator),
                 alignment: .bottom
             )
 
@@ -57,11 +55,10 @@ struct DiagnosticsPane: View {
                         .foregroundColor(.green.opacity(0.6))
                     Text("No Issues")
                         .font(.system(size: 13))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(AppTheme.bg)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -75,7 +72,6 @@ struct DiagnosticsPane: View {
                         }
                     }
                 }
-                .background(AppTheme.bg)
             }
         }
     }
@@ -135,16 +131,16 @@ struct DiagnosticRow: View {
                         if let column = diagnostic.column {
                             Text("Line \(diagnostic.line):\(column)")
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(AppTheme.textSecondary)
+                                .foregroundStyle(.secondary)
                         } else {
                             Text("Line \(diagnostic.line)")
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(AppTheme.textSecondary)
+                                .foregroundStyle(.secondary)
                         }
 
                         Text("•")
                             .font(.system(size: 11))
-                            .foregroundColor(AppTheme.textSecondary.opacity(0.5))
+                            .foregroundStyle(.tertiary)
 
                         Text(diagnostic.severity.rawValue.capitalized)
                             .font(.system(size: 11, weight: .medium))
@@ -154,7 +150,6 @@ struct DiagnosticRow: View {
                     // Message
                     Text(diagnostic.message)
                         .font(.system(size: 12))
-                        .foregroundColor(AppTheme.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                 }
@@ -164,11 +159,11 @@ struct DiagnosticRow: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isHovered ? AppTheme.bgLight : AppTheme.bg)
+            .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
             .overlay(
                 Rectangle()
-                    .frame(height: AppTheme.borderWidth)
-                    .foregroundColor(AppTheme.border.opacity(0.3)),
+                    .frame(height: 1)
+                    .foregroundStyle(.separator.opacity(0.5)),
                 alignment: .bottom
             )
         }

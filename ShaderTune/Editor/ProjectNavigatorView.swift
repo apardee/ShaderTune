@@ -33,14 +33,13 @@ struct ProjectNavigatorView: View {
             Section {
                 HStack {
                     Image(systemName: "cube.fill")
-                        .foregroundColor(AppTheme.accent)
+                        .foregroundStyle(.tint)
                     Text(project.name)
                         .font(.headline)
-                        .foregroundColor(AppTheme.textPrimary)
                     Spacer()
                     Text(project.version)
                         .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -77,14 +76,13 @@ struct ProjectNavigatorView: View {
                         showingNewBufferSheet = true
                     } label: {
                         Label("Add Buffer", systemImage: "plus.circle")
-                            .foregroundColor(AppTheme.accent)
                     }
                     .buttonStyle(.plain)
                     .padding(.vertical, 4)
                 } label: {
                     Label("Buffers", systemImage: "square.stack")
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -103,13 +101,11 @@ struct ProjectNavigatorView: View {
                 } label: {
                     Label("Output", systemImage: "display")
                         .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
         .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(AppTheme.bg)
         .sheet(isPresented: $showingNewBufferSheet) {
             NewBufferSheet(
                 existingBufferNames: Set(project.buffers.map { $0.name }),
@@ -223,22 +219,14 @@ struct NewBufferSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("New Buffer")
                 .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Buffer Name:")
                     .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
 
                 TextField(suggestedName, text: $bufferName)
-                    .textFieldStyle(.plain)
-                    .padding(6)
-                    .background(AppTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
-                            .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
-                    )
+                    .textFieldStyle(.roundedBorder)
                     .onAppear {
                         bufferName = suggestedName
                     }
@@ -251,13 +239,12 @@ struct NewBufferSheet: View {
             }
 
             Toggle("Enable Feedback", isOn: $enableFeedback)
-                .tint(AppTheme.accent)
                 .help("Allow this buffer to sample its previous frame (for accumulation effects)")
 
             if enableFeedback {
                 Text("The buffer can sample its previous frame at texture(7)")
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
             }
 
             HStack {
@@ -266,7 +253,7 @@ struct NewBufferSheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
-                .buttonStyle(.flat)
+                .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
 
                 Button("Create") {
@@ -274,14 +261,13 @@ struct NewBufferSheet: View {
                     onCreate(name, enableFeedback)
                     dismiss()
                 }
-                .buttonStyle(.flatPrimary)
+                .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!isValid)
             }
         }
         .padding(20)
         .frame(width: 320)
-        .background(AppTheme.bg)
     }
 }
 
@@ -308,11 +294,10 @@ struct PassRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(pass.name)
-                    .foregroundColor(isSelected ? AppTheme.accent : AppTheme.textPrimary)
 
                 Text(pass.file)
                     .font(.caption)
-                    .foregroundColor(isSelected ? AppTheme.accent.opacity(0.8) : AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -338,8 +323,6 @@ struct PassRow: View {
         }
         .padding(.vertical, 2)
         .padding(.horizontal, 4)
-        .background(isSelected ? AppTheme.selection : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
         .contentShape(Rectangle())
     }
 
@@ -359,11 +342,11 @@ struct PassRow: View {
         } else if hasWarnings {
             return .yellow
         } else if isSelected {
-            return AppTheme.accent
+            return .accentColor
         } else if pass.isMain {
             return .green
         } else {
-            return AppTheme.accent
+            return .accentColor
         }
     }
 }
@@ -402,7 +385,6 @@ struct WorkspaceNavigatorView: View {
                         showingNewBufferSheet = true
                     } label: {
                         Label("Add Buffer", systemImage: "plus.circle")
-                            .foregroundColor(AppTheme.accent)
                     }
                     .buttonStyle(.plain)
                     .padding(.vertical, 4)
@@ -420,19 +402,16 @@ struct WorkspaceNavigatorView: View {
                 } label: {
                     HStack {
                         Image(systemName: "cube.fill")
-                            .foregroundColor(
-                                selectedProject?.id == project.id ? AppTheme.accent : AppTheme.textSecondary
+                            .foregroundStyle(
+                                selectedProject?.id == project.id ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary)
                             )
                         Text(project.name)
                             .font(.headline)
-                            .foregroundColor(AppTheme.textPrimary)
                     }
                 }
             }
         }
         .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(AppTheme.bg)
         .sheet(isPresented: $showingNewBufferSheet) {
             if let targetProject = newBufferTargetProject {
                 NewBufferSheet(

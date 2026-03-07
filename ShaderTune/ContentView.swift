@@ -116,26 +116,25 @@ struct ContentView: View {
                             ? "doc.text.magnifyingglass" : "folder.badge.plus"
                     )
                     .font(.system(size: 64))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
 
                     VStack(spacing: 8) {
                         Text("No Shader Selected")
                             .font(.title2)
                             .fontWeight(.semibold)
-                            .foregroundColor(AppTheme.textPrimary)
 
                         if selectedDirectoryURL != nil {
                             Text(
                                 "Select a Metal shader file (.metal) from the sidebar to begin editing"
                             )
                             .font(.body)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                         } else {
                             Text("Open a folder (Cmd+O) or drag a shader file here to begin")
                                 .font(.body)
-                                .foregroundColor(AppTheme.textSecondary)
+                                .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)
                         }
@@ -144,7 +143,6 @@ struct ContentView: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(AppTheme.bg)
             } else {
                 ZStack(alignment: .topLeading) {
                     // Editor with native inline errors
@@ -344,14 +342,14 @@ struct ContentView: View {
                     }
                     if let project = currentProject, let pass = selectedPass {
                         Image(systemName: pass.isMain ? "display" : "square.stack")
-                            .foregroundColor(AppTheme.accent)
+                            .foregroundStyle(.tint)
                         Text("\(project.name) / \(pass.name)")
                             .font(.subheadline)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     } else if let filename = selectedFileURL?.lastPathComponent {
                         Text(filename)
                             .font(.subheadline)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }

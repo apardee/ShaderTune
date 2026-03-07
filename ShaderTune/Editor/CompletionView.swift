@@ -11,7 +11,7 @@ struct CompletionView: View {
         VStack(spacing: 0) {
             if completions.isEmpty {
                 Text("No completions")
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
                     .padding()
             } else {
                 ScrollViewReader { proxy in
@@ -42,7 +42,10 @@ struct CompletionView: View {
             }
         }
         .frame(width: 400)
-        .flatPanel()
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.separator))
+        .shadow(radius: 8, y: 2)
         #if os(macOS)
         .onKeyPress(.upArrow) {
             moveSelection(by: -1)
@@ -95,11 +98,10 @@ struct CompletionRow: View {
                 Text(item.text)
                     .font(.system(.body, design: .monospaced))
                     .fontWeight(isSelected ? .semibold : .regular)
-                    .foregroundColor(AppTheme.textPrimary)
 
                 Text(item.description)
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -109,13 +111,13 @@ struct CompletionRow: View {
                 .font(.caption2)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(kindBackgroundColor)
-                .foregroundColor(kindForegroundColor)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+                .background(iconColor.opacity(0.15))
+                .foregroundColor(iconColor)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(isSelected ? AppTheme.selection : Color.clear)
+        .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
         .contentShape(Rectangle())
     }
 
@@ -132,14 +134,6 @@ struct CompletionRow: View {
         case .variable:
             return .cyan
         }
-    }
-
-    private var kindBackgroundColor: Color {
-        iconColor.opacity(0.15)
-    }
-
-    private var kindForegroundColor: Color {
-        iconColor
     }
 }
 

@@ -30,12 +30,10 @@ struct FlatSplitViewWithBottom<Sidebar: View, Content: View, Bottom: View>: View
                 if showSidebar {
                     sidebar
                         .frame(minWidth: 180, idealWidth: 220)
-                        .background(AppTheme.bg)
                 }
 
                 content
                     .frame(minWidth: 300)
-                    .background(AppTheme.bg)
             }
             .frame(minHeight: 300)
 
@@ -43,7 +41,6 @@ struct FlatSplitViewWithBottom<Sidebar: View, Content: View, Bottom: View>: View
             if showBottom {
                 bottom
                     .frame(minHeight: 100, idealHeight: 200, maxHeight: 400)
-                    .background(AppTheme.bg)
             }
         }
     }

@@ -103,16 +103,15 @@ struct FileNavigatorView: View {
         VStack(spacing: 12) {
             Image(systemName: "folder.badge.questionmark")
                 .font(.system(size: 48))
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundStyle(.secondary)
             Text("No folder selected")
                 .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundStyle(.secondary)
             Text("Use File → Open (Cmd+O)")
                 .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.bg)
     }
 
     private var fileTreeView: some View {
@@ -131,12 +130,9 @@ struct FileNavigatorView: View {
                     systemImage: "folder.fill"
                 )
                 .font(.headline)
-                .foregroundColor(AppTheme.accent)
             }
         }
         .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(AppTheme.bg)
     }
 }
 
@@ -160,7 +156,6 @@ struct FileNodeView: View {
                 }
             } label: {
                 Label(node.name, systemImage: "folder.fill")
-                    .foregroundColor(AppTheme.accent)
             }
         } else {
             Button(
@@ -168,19 +163,10 @@ struct FileNodeView: View {
                 label: {
                     HStack {
                         Label(node.name, systemImage: "doc.text.fill")
-                            .foregroundColor(
-                                selectedFileURL == node.url
-                                    ? AppTheme.accent : AppTheme.textPrimary
-                            )
                         Spacer()
                     }
                     .padding(.vertical, 2)
                     .padding(.horizontal, 4)
-                    .background(
-                        selectedFileURL == node.url
-                            ? AppTheme.selection : Color.clear
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
                     .contentShape(Rectangle())
                 }
             )

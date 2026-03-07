@@ -14,80 +14,69 @@ struct FindReplaceView: View {
     var body: some View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
-                // Search field
                 HStack {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                     TextField("Find", text: $searchText)
                         .textFieldStyle(.plain)
-                        .foregroundColor(AppTheme.textPrimary)
                         .focused($searchFieldFocused)
                         .onSubmit {
                             onFind()
                         }
                 }
                 .padding(5)
-                .background(AppTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
-                        .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
-                )
+                .background(.background)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator))
 
                 Button(action: onFind) {
                     Image(systemName: "arrow.down.circle")
-                        .foregroundColor(AppTheme.textPrimary)
                 }
-                .buttonStyle(.flat)
+                .buttonStyle(.bordered)
                 .help("Find Next")
 
                 Button(action: { isVisible = false }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
                 .help("Close")
             }
 
             HStack(spacing: 6) {
-                // Replace field
                 HStack {
                     Image(systemName: "arrow.left.arrow.right")
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                     TextField("Replace", text: $replaceText)
                         .textFieldStyle(.plain)
-                        .foregroundColor(AppTheme.textPrimary)
                         .onSubmit {
                             onReplace()
                         }
                 }
                 .padding(5)
-                .background(AppTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
-                        .stroke(AppTheme.border, lineWidth: AppTheme.borderWidth)
-                )
+                .background(.background)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator))
 
                 Button("Replace") {
                     onReplace()
                 }
-                .buttonStyle(.flat)
+                .buttonStyle(.bordered)
 
                 Button("All") {
                     onReplaceAll()
                 }
-                .buttonStyle(.flat)
+                .buttonStyle(.bordered)
                 .help("Replace All")
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(AppTheme.bgLight)
+        .background(.bar)
         .overlay(
             Rectangle()
-                .frame(height: AppTheme.borderWidth)
-                .foregroundColor(AppTheme.border),
+                .frame(height: 1)
+                .foregroundStyle(.separator),
             alignment: .top
         )
         .onAppear {

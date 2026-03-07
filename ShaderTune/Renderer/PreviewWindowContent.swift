@@ -46,17 +46,16 @@ struct PreviewWindowContent: View {
 
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 64))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(.secondary)
 
                 VStack(spacing: 8) {
                     Text("No Shader Preview")
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.textPrimary)
 
                     Text("Compile your shader to see the preview")
                         .font(.body)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                 }
@@ -64,7 +63,6 @@ struct PreviewWindowContent: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppTheme.bg)
         }
     }
 }
