@@ -351,8 +351,8 @@ struct PassRow: View {
     }
 }
 
-/// View for workspace mode showing multiple projects
-struct WorkspaceNavigatorView: View {
+/// View for workspace mode showing multiple projects (kept for reference; workspace navigation is handled by ProjectNavigator)
+private struct WorkspaceNavigatorView: View {
     @Binding var projects: [ShaderProject]
     @Binding var selectedProject: ShaderProject?
     @Binding var selectedPass: ShaderPass?

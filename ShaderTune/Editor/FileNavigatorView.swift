@@ -26,10 +26,8 @@ struct FileNavigatorView: View {
 
     let onSelectFile: (URL) -> Void
 
-    // Project mode support
     @Binding var currentProject: ShaderProject?
     @Binding var selectedPass: ShaderPass?
-    @Binding var workspaceProjects: [ShaderProject]
     let passDiagnostics: [String: [CompilationDiagnostic]]
     let onSelectPass: (ShaderPass) -> Void
     let onProjectUpdated: (ShaderProject) -> Void
@@ -43,7 +41,6 @@ struct FileNavigatorView: View {
         onSelectFile: @escaping (URL) -> Void,
         currentProject: Binding<ShaderProject?> = .constant(nil),
         selectedPass: Binding<ShaderPass?> = .constant(nil),
-        workspaceProjects: Binding<[ShaderProject]> = .constant([]),
         passDiagnostics: [String: [CompilationDiagnostic]] = [:],
         onSelectPass: @escaping (ShaderPass) -> Void = { _ in },
         onProjectUpdated: @escaping (ShaderProject) -> Void = { _ in }
@@ -54,64 +51,33 @@ struct FileNavigatorView: View {
         self.onSelectFile = onSelectFile
         self._currentProject = currentProject
         self._selectedPass = selectedPass
-        self._workspaceProjects = workspaceProjects
         self.passDiagnostics = passDiagnostics
         self.onSelectPass = onSelectPass
         self.onProjectUpdated = onProjectUpdated
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if selectedDirectoryURL == nil {
-                // No folder selected
-                emptyStateView
-            } else if currentProject != nil {
-                // Project mode - show passes
-                ProjectNavigatorView(
-                    project: $currentProject.unwrap()!,
-                    selectedPass: $selectedPass,
-                    passDiagnostics: passDiagnostics,
-                    onProjectUpdated: onProjectUpdated
-                )
-                .onChange(of: selectedPass) { _, newPass in
-                    if let pass = newPass {
-                        onSelectPass(pass)
-                    }
+        if selectedDirectoryURL == nil {
+            ContentUnavailableView(
+                "No Folder Open",
+                systemImage: "folder.badge.questionmark",
+                description: Text("Use File → Open (Cmd+O)")
+            )
+        } else if currentProject != nil {
+            ProjectNavigatorView(
+                project: $currentProject.unwrap()!,
+                selectedPass: $selectedPass,
+                passDiagnostics: passDiagnostics,
+                onProjectUpdated: onProjectUpdated
+            )
+            .onChange(of: selectedPass) { _, newPass in
+                if let pass = newPass {
+                    onSelectPass(pass)
                 }
-            } else if !workspaceProjects.isEmpty {
-                // Workspace mode - show multiple projects
-                WorkspaceNavigatorView(
-                    projects: $workspaceProjects,
-                    selectedProject: $currentProject,
-                    selectedPass: $selectedPass,
-                    passDiagnostics: passDiagnostics,
-                    onProjectUpdated: onProjectUpdated
-                )
-                .onChange(of: selectedPass) { _, newPass in
-                    if let pass = newPass {
-                        onSelectPass(pass)
-                    }
-                }
-            } else {
-                // Loose files mode - show file tree
-                fileTreeView
             }
+        } else {
+            fileTreeView
         }
-    }
-
-    private var emptyStateView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "folder.badge.questionmark")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("No folder selected")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text("Use File → Open (Cmd+O)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var fileTreeView: some View {

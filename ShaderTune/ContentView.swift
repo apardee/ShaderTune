@@ -183,6 +183,16 @@ struct ContentView: View {
 
     private var splitView: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
+            ProjectNavigator(
+                directoryURL: $selectedDirectoryURL,
+                workspaceProjects: $workspaceProjects,
+                currentProject: $currentProject,
+                onSelectProject: handleProjectSelection,
+                onCreateProject: handleWorkspaceProjectCreated,
+                onRemoveProject: handleProjectRemoved
+            )
+            .navigationSplitViewColumnWidth(min: 160, ideal: 200)
+        } content: {
             FileNavigatorView(
                 selectedDirectoryURL: $selectedDirectoryURL,
                 fileTree: $fileTree,
@@ -190,7 +200,6 @@ struct ContentView: View {
                 onSelectFile: handleFileSelection,
                 currentProject: $currentProject,
                 selectedPass: $selectedPass,
-                workspaceProjects: $workspaceProjects,
                 passDiagnostics: compiler.passDiagnostics,
                 onSelectPass: handlePassSelection,
                 onProjectUpdated: handleProjectUpdated
@@ -692,6 +701,56 @@ struct ContentView: View {
             loadFile(fileURL)
         }
         syncPreviewState()
+    }
+
+    // MARK: - Workspace Project Management
+
+    private func handleProjectSelection(_ project: ShaderProject) {
+        if isFileDirty, let url = selectedFileURL {
+            saveFile(url)
+        }
+        currentProject = project
+        passLibraries = compiler.compileProject(project)
+        selectedPass = project.mainPass
+        let fileURL = project.fileURL(for: project.mainPass)
+        loadFile(fileURL)
+        syncPreviewState()
+    }
+
+    private func handleWorkspaceProjectCreated(_ url: URL, _ name: String) {
+        do {
+            let project = try ProjectConfigService.createProject(name: name, at: url)
+            workspaceProjects.append(project)
+            workspaceProjects.sort { $0.name < $1.name }
+            handleProjectSelection(project)
+        } catch {
+            fileError = .projectError(error.localizedDescription)
+            showingFileError = true
+        }
+    }
+
+    private func handleProjectRemoved(_ project: ShaderProject) {
+        do {
+            try FileManager.default.trashItem(at: project.projectURL, resultingItemURL: nil)
+            workspaceProjects.removeAll { $0.id == project.id }
+            compiler.clearPassState()
+            if currentProject?.id == project.id {
+                if let first = workspaceProjects.first {
+                    handleProjectSelection(first)
+                } else {
+                    currentProject = nil
+                    selectedPass = nil
+                    selectedFileURL = nil
+                    shaderSource = ""
+                    savedSource = ""
+                    passLibraries = [:]
+                    syncPreviewState()
+                }
+            }
+        } catch {
+            fileError = .projectError(error.localizedDescription)
+            showingFileError = true
+        }
     }
 
     // MARK: - External File Change Handling
