@@ -56,6 +56,9 @@ struct ContentView: View {
     @State private var savedSource: String = ""
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showDiagnostics: Bool = false
+    @State private var showShaderConfig: Bool = false
+    @State private var shaderConfigWidth: CGFloat = 240
+    @State private var shaderConfigDragStartWidth: CGFloat?
     @State private var recentProjects: [URL] = []
 
     // Project mode state
@@ -193,43 +196,53 @@ struct ContentView: View {
                 onRemoveShader: handleShaderRemoved
             )
             .navigationSplitViewColumnWidth(min: 160, ideal: 200)
-        } content: {
-            FileNavigatorView(
-                selectedDirectoryURL: $selectedDirectoryURL,
-                fileTree: $fileTree,
-                selectedFileURL: $selectedFileURL,
-                onSelectFile: handleFileSelection,
-                currentShader: $currentShader,
-                selectedPass: $selectedPass,
-                passDiagnostics: compiler.passDiagnostics,
-                onSelectPass: handlePassSelection,
-                onShaderUpdated: handleShaderUpdated
-            )
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } detail: {
-            VSplitView {
-                contentPane
-                    .overlay(alignment: .bottomTrailing) {
-                        if !previewState.isDetached {
-                            previewInset
-                                .padding(24)
+            HStack(spacing: 0) {
+                VSplitView {
+                    contentPane
+                        .overlay(alignment: .bottomTrailing) {
+                            if !previewState.isDetached {
+                                previewInset
+                                    .padding(24)
+                            }
+                        }
+                        .frame(minHeight: 300)
+
+                    if showDiagnostics {
+                        DiagnosticsPane(
+                            diagnostics: currentDiagnostics,
+                            onDismiss: {
+                                showDiagnostics = false
+                            },
+                            onSelectDiagnostic: { diagnostic in
+                                print("Jump to line \(diagnostic.line)")
+                            }
+                        )
+                        .frame(minHeight: 100, idealHeight: 200, maxHeight: 400)
+                    }
+                }
+
+                if showShaderConfig, let shader = currentShader {
+                    shaderConfigDivider
+                    ShaderConfigurationView(
+                        project: Binding(
+                            get: { shader },
+                            set: { currentShader = $0 }
+                        ),
+                        selectedPass: $selectedPass,
+                        passDiagnostics: compiler.passDiagnostics,
+                        onShaderUpdated: handleShaderUpdated
+                    )
+                    .frame(width: shaderConfigWidth)
+                    .onChange(of: selectedPass) { _, newPass in
+                        if let pass = newPass {
+                            handlePassSelection(pass)
                         }
                     }
-                    .frame(minHeight: 300)
-
-                if showDiagnostics {
-                    DiagnosticsPane(
-                        diagnostics: currentDiagnostics,
-                        onDismiss: {
-                            showDiagnostics = false
-                        },
-                        onSelectDiagnostic: { diagnostic in
-                            print("Jump to line \(diagnostic.line)")
-                        }
-                    )
-                    .frame(minHeight: 100, idealHeight: 200, maxHeight: 400)
+                    .transition(.move(edge: .trailing))
                 }
             }
+            .clipped()
         }
     }
 
@@ -338,6 +351,33 @@ struct ContentView: View {
         openWindow(id: "shader-preview")
     }
 
+    private let shaderConfigMinWidth: CGFloat = 180
+    private let shaderConfigMaxWidth: CGFloat = 520
+
+    private var shaderConfigDivider: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 8)
+            .contentShape(Rectangle())
+            .cursor(.resizeLeftRight)
+            .overlay(Divider(), alignment: .center)
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        if shaderConfigDragStartWidth == nil {
+                            shaderConfigDragStartWidth = shaderConfigWidth
+                        }
+                        guard let startWidth = shaderConfigDragStartWidth else { return }
+                        let delta = -(value.location.x - value.startLocation.x)
+                        shaderConfigWidth = (startWidth + delta)
+                            .clamped(to: shaderConfigMinWidth...shaderConfigMaxWidth)
+                    }
+                    .onEnded { _ in
+                        shaderConfigDragStartWidth = nil
+                    }
+            )
+    }
+
     private var navigationTitle: String {
         if let project = currentShader, let pass = selectedPass {
             return "\(project.name) — \(pass.name)"
@@ -363,6 +403,15 @@ struct ContentView: View {
                     ProgressView()
                         .scaleEffect(0.8)
                 }
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showShaderConfig.toggle()
+                    }
+                } label: {
+                    Image(systemName: "sidebar.right")
+                }
+                .help(showShaderConfig ? "Hide Shader Configuration" : "Show Shader Configuration")
+                .disabled(currentShader == nil)
             }
         }
         .onKeyPress("f", phases: .down) { keyPress in
@@ -437,6 +486,11 @@ struct ContentView: View {
                 // Auto-show diagnostics pane when there are errors
                 if !newValue.isEmpty && !showDiagnostics {
                     showDiagnostics = true
+                }
+            }
+            .onChange(of: currentShader) { _, newValue in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showShaderConfig = newValue != nil
                 }
             }
             .onChange(of: selectedDirectoryURL) { _, newValue in

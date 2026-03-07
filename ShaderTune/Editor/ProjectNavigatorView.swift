@@ -1,5 +1,5 @@
 //
-//  ProjectNavigatorView.swift
+//  ShaderConfigurationView.swift
 //  ShaderTune
 //
 //  Navigator view for shader projects showing passes instead of files.
@@ -9,7 +9,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// View for navigating shader projects with multi-pass support
-struct ProjectNavigatorView: View {
+struct ShaderConfigurationView: View {
     @Binding var project: Shader
     @Binding var selectedPass: ShaderPass?
     let passDiagnostics: [String: [CompilationDiagnostic]]
