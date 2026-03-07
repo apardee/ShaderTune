@@ -12,7 +12,8 @@ struct ShaderEditorView: View {
             text: $source,
             position: $position,
             messages: $messages,
-            language: .msl()
+            language: .msl(),
+            layout: .init(showMinimap: false, wrapText: false)
         )
         .environment(\.codeEditorTheme, Theme.defaultDark)
     }

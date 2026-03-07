@@ -200,12 +200,6 @@ struct ContentView: View {
             HStack(spacing: 0) {
                 VSplitView {
                     contentPane
-                        .overlay(alignment: .bottomTrailing) {
-                            if !previewState.isDetached {
-                                previewInset
-                                    .padding(24)
-                            }
-                        }
                         .frame(minHeight: 300)
 
                     if showDiagnostics {
@@ -243,6 +237,12 @@ struct ContentView: View {
                 }
             }
             .clipped()
+            .overlay(alignment: .bottomTrailing) {
+                if !previewState.isDetached {
+                    previewInset
+                        .padding(24)
+                }
+            }
         }
     }
 
