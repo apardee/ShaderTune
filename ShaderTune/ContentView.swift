@@ -17,7 +17,6 @@ struct ContentView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showingFindReplace = false
     @State private var showShaderConfig: Bool = false
-    @State private var shaderConfigWidth: CGFloat = 240
     @State private var showingNewFileSheet: Bool = false
     @State private var previewWidth: CGFloat = 320
 
@@ -36,12 +35,10 @@ struct ContentView: View {
                 }
             }
             .onChange(of: state.currentShader) { oldValue, newValue in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    if newValue == nil {
-                        showShaderConfig = false
-                    } else if oldValue == nil {
-                        showShaderConfig = true
-                    }
+                if newValue == nil {
+                    showShaderConfig = false
+                } else if oldValue == nil {
+                    showShaderConfig = true
                 }
             }
             .onChange(of: state.selectedDirectoryURL) { _, newValue in
@@ -158,21 +155,36 @@ struct ContentView: View {
             )
             .navigationSplitViewColumnWidth(min: 160, ideal: 200)
         } detail: {
-            if state.displayMode == .preview {
-                PreviewModeDetailView(
-                    state: state,
-                    showShaderConfig: $showShaderConfig,
-                    shaderConfigWidth: $shaderConfigWidth
-                )
-                .toolbarBackground(.clear)
-            } else {
-                EditorDetailView(
-                    state: state,
-                    showingFindReplace: $showingFindReplace,
-                    showShaderConfig: $showShaderConfig,
-                    shaderConfigWidth: $shaderConfigWidth,
-                    previewWidth: $previewWidth
-                )
+            HSplitView {
+                if state.displayMode == .preview {
+                    PreviewModeDetailView(state: state)
+                        .toolbarBackground(.clear)
+                        .ignoresSafeArea()
+                } else {
+                    EditorDetailView(
+                        state: state,
+                        showingFindReplace: $showingFindReplace,
+                        previewWidth: $previewWidth
+                    )
+                }
+
+                if showShaderConfig, let shader = state.currentShader {
+                    ShaderConfigurationView(
+                        project: Binding(
+                            get: { shader },
+                            set: { state.currentShader = $0 }
+                        ),
+                        selectedPass: $state.selectedPass,
+                        passDiagnostics: state.compiler.passDiagnostics,
+                        onShaderUpdated: state.handleShaderUpdated
+                    )
+                    .frame(minWidth: 180, idealWidth: 240, maxWidth: 520)
+                    .onChange(of: state.selectedPass) { _, newPass in
+                        if let pass = newPass {
+                            state.handlePassSelection(pass)
+                        }
+                    }
+                }
             }
         }
     }
@@ -205,9 +217,7 @@ struct ContentView: View {
             }
 
             Button {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    showShaderConfig.toggle()
-                }
+                showShaderConfig.toggle()
             } label: {
                 Image(systemName: "sidebar.right")
             }
