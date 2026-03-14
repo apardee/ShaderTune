@@ -164,6 +164,7 @@ struct ContentView: View {
                     showShaderConfig: $showShaderConfig,
                     shaderConfigWidth: $shaderConfigWidth
                 )
+                .toolbarBackground(.clear)
             } else {
                 EditorDetailView(
                     state: state,

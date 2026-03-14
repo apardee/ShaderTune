@@ -125,7 +125,6 @@ struct ProjectNavigator: View {
                 .padding(.vertical, 6)
                 Spacer()
             }
-            .background(.bar)
         }
         .confirmationDialog(
             "Remove Shader \"\(shaderToDelete?.name ?? "")\"",
