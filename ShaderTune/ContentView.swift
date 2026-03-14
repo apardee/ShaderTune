@@ -29,12 +29,18 @@ enum FileError: LocalizedError {
     }
 }
 
+enum DisplayMode {
+    case editor
+    case preview
+}
+
 struct ContentView: View {
     // Default shader is empty - shows empty state until file is loaded
     private static let defaultShader = ""
 
     @Environment(PreviewState.self) private var previewState
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
 
     @State private var compiler: MetalCompilerService
     @State private var shaderSource = ContentView.defaultShader
@@ -58,6 +64,8 @@ struct ContentView: View {
     @State private var showDiagnostics: Bool = false
     @State private var showShaderConfig: Bool = false
     @State private var shaderConfigWidth: CGFloat = 240
+    @State private var displayMode: DisplayMode = .editor
+    @State private var showPreviewControls: Bool = false
     @State private var shaderConfigDragStartWidth: CGFloat?
     @State private var recentProjects: [URL] = []
 
@@ -153,6 +161,7 @@ struct ContentView: View {
                         source: $shaderSource,
                         diagnostics: currentDiagnostics
                     )
+                    .id(selectedFileURL)
 
                     // Completion popup
                     if showingCompletions && !completions.isEmpty {
@@ -197,50 +206,54 @@ struct ContentView: View {
             )
             .navigationSplitViewColumnWidth(min: 160, ideal: 200)
         } detail: {
-            HStack(spacing: 0) {
-                VSplitView {
-                    contentPane
-                        .frame(minHeight: 300)
+            if displayMode == .preview {
+                previewModeDetail
+            } else {
+                HStack(spacing: 0) {
+                    VSplitView {
+                        contentPane
+                            .frame(minHeight: 300)
 
-                    if showDiagnostics {
-                        DiagnosticsPane(
-                            diagnostics: currentDiagnostics,
-                            onDismiss: {
-                                showDiagnostics = false
-                            },
-                            onSelectDiagnostic: { diagnostic in
-                                print("Jump to line \(diagnostic.line)")
-                            }
-                        )
-                        .frame(minHeight: 100, idealHeight: 200, maxHeight: 400)
-                    }
-                }
-
-                if showShaderConfig, let shader = currentShader {
-                    shaderConfigDivider
-                    ShaderConfigurationView(
-                        project: Binding(
-                            get: { shader },
-                            set: { currentShader = $0 }
-                        ),
-                        selectedPass: $selectedPass,
-                        passDiagnostics: compiler.passDiagnostics,
-                        onShaderUpdated: handleShaderUpdated
-                    )
-                    .frame(width: shaderConfigWidth)
-                    .onChange(of: selectedPass) { _, newPass in
-                        if let pass = newPass {
-                            handlePassSelection(pass)
+                        if showDiagnostics {
+                            DiagnosticsPane(
+                                diagnostics: currentDiagnostics,
+                                onDismiss: {
+                                    showDiagnostics = false
+                                },
+                                onSelectDiagnostic: { diagnostic in
+                                    print("Jump to line \(diagnostic.line)")
+                                }
+                            )
+                            .frame(minHeight: 100, idealHeight: 200, maxHeight: 400)
                         }
                     }
-                    .transition(.move(edge: .trailing))
+
+                    if showShaderConfig, let shader = currentShader {
+                        shaderConfigDivider
+                        ShaderConfigurationView(
+                            project: Binding(
+                                get: { shader },
+                                set: { currentShader = $0 }
+                            ),
+                            selectedPass: $selectedPass,
+                            passDiagnostics: compiler.passDiagnostics,
+                            onShaderUpdated: handleShaderUpdated
+                        )
+                        .frame(width: shaderConfigWidth)
+                        .onChange(of: selectedPass) { _, newPass in
+                            if let pass = newPass {
+                                handlePassSelection(pass)
+                            }
+                        }
+                        .transition(.move(edge: .trailing))
+                    }
                 }
-            }
-            .clipped()
-            .overlay(alignment: .bottomTrailing) {
-                if !previewState.isDetached {
-                    previewInset
-                        .padding(24)
+                .clipped()
+                .overlay(alignment: .bottomTrailing) {
+                    if !previewState.isDetached {
+                        previewInset
+                            .padding(24)
+                    }
                 }
             }
         }
@@ -285,6 +298,80 @@ struct ContentView: View {
                     isHoveringPreview = hovering
                 }
             }
+    }
+
+    @ViewBuilder
+    private var previewModeDetail: some View {
+        ZStack(alignment: .top) {
+            PreviewWindowContent()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if showShaderConfig, let shader = currentShader {
+                HStack(spacing: 0) {
+                    Spacer()
+                    Divider()
+                    ShaderConfigurationView(
+                        project: Binding(
+                            get: { shader },
+                            set: { currentShader = $0 }
+                        ),
+                        selectedPass: $selectedPass,
+                        passDiagnostics: compiler.passDiagnostics,
+                        onShaderUpdated: handleShaderUpdated
+                    )
+                    .frame(width: shaderConfigWidth)
+                    .onChange(of: selectedPass) { _, newPass in
+                        if let pass = newPass {
+                            handlePassSelection(pass)
+                        }
+                    }
+                }
+                .transition(.move(edge: .trailing))
+            }
+
+            VStack {
+                HStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        if isFileDirty {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 7))
+                                .foregroundColor(.orange)
+                                .help("Unsaved changes")
+                        }
+                        if compiler.isCompiling {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                showShaderConfig.toggle()
+                            }
+                        } label: {
+                            Image(systemName: "sidebar.right")
+                        }
+                        .buttonStyle(.plain)
+                        .help(showShaderConfig ? "Hide Shader Configuration" : "Show Shader Configuration")
+                        .disabled(currentShader == nil)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .opacity(showPreviewControls ? 1 : 0)
+                    .padding(.trailing, 12)
+                }
+                .frame(height: 50)
+                .contentShape(Rectangle())
+                .onHover { hovering in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showPreviewControls = hovering
+                    }
+                }
+                Spacer()
+            }
+        }
+        .clipped()
     }
 
     private func previewResizeHandle(edge: Edge, horizontal: Bool) -> some View {
@@ -393,15 +480,24 @@ struct ContentView: View {
             #if os(macOS)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                if isFileDirty {
-                    Image(systemName: "circle.fill")
-                        .font(.system(size: 7))
-                        .foregroundColor(.orange)
-                        .help("Unsaved changes")
+                Picker("Display Mode", selection: $displayMode) {
+                    Image(systemName: "rectangle.split.2x1")
+                        .tag(DisplayMode.editor)
+                    Image(systemName: "rectangle")
+                        .tag(DisplayMode.preview)
                 }
-                if compiler.isCompiling {
-                    ProgressView()
-                        .scaleEffect(0.8)
+                .pickerStyle(.segmented)
+                if displayMode == .editor {
+                    if isFileDirty {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 7))
+                            .foregroundColor(.orange)
+                            .help("Unsaved changes")
+                    }
+                    if compiler.isCompiling {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    }
                 }
                 Button {
                     withAnimation(.easeInOut(duration: 0.25)) {
@@ -488,9 +584,13 @@ struct ContentView: View {
                     showDiagnostics = true
                 }
             }
-            .onChange(of: currentShader) { _, newValue in
+            .onChange(of: currentShader) { oldValue, newValue in
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    showShaderConfig = newValue != nil
+                    if newValue == nil {
+                        showShaderConfig = false
+                    } else if oldValue == nil {
+                        showShaderConfig = true
+                    }
                 }
             }
             .onChange(of: selectedDirectoryURL) { _, newValue in
@@ -513,6 +613,13 @@ struct ContentView: View {
                     savedSource = ContentView.defaultShader
                     shaderSource = ContentView.defaultShader
                     isFileDirty = false
+                }
+            }
+            .onChange(of: displayMode) { _, newMode in
+                showPreviewControls = false
+                if newMode == .preview && previewState.isDetached {
+                    previewState.isDetached = false
+                    dismissWindow(id: "shader-preview")
                 }
             }
             .onChange(of: shaderSource) { oldValue, newValue in
