@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showingFindReplace = false
     @State private var showShaderConfig: Bool = false
+    @State private var showPreviewToolbar: Bool = false
     @State private var showingNewFileSheet: Bool = false
     @State private var previewWidth: CGFloat = 320
 
@@ -155,38 +156,66 @@ struct ContentView: View {
             )
             .navigationSplitViewColumnWidth(min: 160, ideal: 200)
         } detail: {
-            HSplitView {
-                if state.displayMode == .preview {
-                    PreviewModeDetailView(state: state)
-                        .toolbarBackground(.clear)
-                        .ignoresSafeArea()
-                } else {
-                    EditorDetailView(
-                        state: state,
-                        showingFindReplace: $showingFindReplace,
-                        previewWidth: $previewWidth
-                    )
-                }
+            detailContent
+        }
+    }
 
-                if showShaderConfig, let shader = state.currentShader {
-                    ShaderConfigurationView(
-                        project: Binding(
-                            get: { shader },
-                            set: { state.currentShader = $0 }
-                        ),
-                        selectedPass: $state.selectedPass,
-                        passDiagnostics: state.compiler.passDiagnostics,
-                        onShaderUpdated: state.handleShaderUpdated
-                    )
-                    .frame(minWidth: 180, idealWidth: 240, maxWidth: 520)
-                    .onChange(of: state.selectedPass) { _, newPass in
-                        if let pass = newPass {
-                            state.handlePassSelection(pass)
-                        }
+    // MARK: - Detail Content
+
+    @ViewBuilder
+    private var detailContent: some View {
+        let isPreview = state.displayMode == .preview
+        HSplitView {
+            if isPreview {
+                PreviewModeDetailView(state: state)
+                    .ignoresSafeArea()
+            } else {
+                EditorDetailView(
+                    state: state,
+                    showingFindReplace: $showingFindReplace,
+                    previewWidth: $previewWidth
+                )
+            }
+
+            if showShaderConfig, let shader = state.currentShader {
+                ShaderConfigurationView(
+                    project: Binding(
+                        get: { shader },
+                        set: { state.currentShader = $0 }
+                    ),
+                    selectedPass: $state.selectedPass,
+                    passDiagnostics: state.compiler.passDiagnostics,
+                    onShaderUpdated: state.handleShaderUpdated
+                )
+                .frame(minWidth: 180, idealWidth: 240, maxWidth: 520)
+                .onChange(of: state.selectedPass) { _, newPass in
+                    if let pass = newPass {
+                        state.handlePassSelection(pass)
                     }
                 }
             }
         }
+        .overlay(alignment: .top) {
+            if isPreview {
+                Color.clear
+                    .frame(height: 50)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showPreviewToolbar = hovering
+                        }
+                    }
+            }
+        }
+        .ignoresSafeArea(edges: .top)
+        #if os(macOS)
+        .toolbarVisibility(
+            isPreview && !showPreviewToolbar && columnVisibility == .detailOnly
+                ? .hidden : .visible,
+            for: .windowToolbar
+        )
+        .toolbarBackground(isPreview ? .hidden : .automatic, for: .windowToolbar)
+        #endif
     }
 
     // MARK: - Toolbar
